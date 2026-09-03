@@ -15,7 +15,7 @@ RB.approvals = (function () {
 
   function render(host) {
     U.clear(host);
-    host.appendChild(U.el('p.muted', null, [t('loading')]));
+    host.appendChild(U.loadingBlock());
     RB.api.call('approvals').then(function (list) {
       U.clear(host);
       RB.app.updateBadge(list.length);

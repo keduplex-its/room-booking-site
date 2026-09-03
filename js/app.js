@@ -33,6 +33,7 @@ RB.app = (function () {
 
   function applyUser(me, resources) {
     state.user = me; state.config = me.config; state.resources = resources;
+    U.signingIn(false);
     $('login').hidden = true; $('app').hidden = false;
     $('user-name').textContent = me.name || me.email;
     $('tab-approvals').hidden = !(me.isSuperAdmin || (me.approverOf || []).length);
@@ -52,6 +53,7 @@ RB.app = (function () {
       painted = true;
     }
     // 2) 서버에서 최신 상태 + 이번 주 현황판을 한 번에 받는다
+    if (!painted) U.signingIn(true, t('login.loadingRooms'));
     RB.api.call('init', range).then(function (res) {
       try { localStorage.setItem(SNAP_KEY, JSON.stringify({ email: profile.email, me: res.me, resources: res.resources })); } catch (e) { /* 무시 */ }
       applyUser(res.me, res.resources);
@@ -62,6 +64,7 @@ RB.app = (function () {
       if (m) RB.bookingForm.openComplete(m[1].toUpperCase());
     }).catch(function (err) {
       U.toast(err.message || t('error.network'), 'error');
+      U.signingIn(false);
       if (!painted) RB.auth.signOut();
     });
   }

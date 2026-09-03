@@ -27,9 +27,16 @@
 
   <!-- 로그인 전 -->
   <section id="login" class="login">
-    <h2 data-i18n="login.title"></h2>
-    <p class="muted" data-i18n="login.desc"></p>
-    <div id="login-button"></div>
+    <div id="login-form">
+      <h2 data-i18n="login.title"></h2>
+      <p class="muted" data-i18n="login.desc"></p>
+      <div id="login-button"></div>
+    </div>
+    <!-- 로그인 버튼을 누른 뒤 인증·세션 교환·첫 데이터까지 몇 초 걸리는 동안 보여주는 상태 -->
+    <div id="signing-in" hidden>
+      <div class="spinner"></div>
+      <p id="signing-in-text" class="muted" data-i18n="login.signingIn"></p>
+    </div>
   </section>
 
   <!-- 로그인 후 -->

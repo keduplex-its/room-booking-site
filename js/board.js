@@ -67,7 +67,7 @@ RB.board = (function () {
     host.appendChild(wrap);
     // 로딩 중에는 직전 데이터로 그려 두어 화면이 비지 않게 한다(첫 로드면 안내문)
     if (resources().length && state.events.length) wrap.appendChild(state.view === 'day' ? dayGrid() : weekGrid());
-    else wrap.appendChild(U.el('p.muted', null, [t('loading')]));
+    else wrap.appendChild(U.loadingBlock());
     load().then(function () {
       U.clear(wrap); wrap.classList.remove('loading');
       if (!resources().length) { wrap.appendChild(U.el('p.muted', null, [t('board.empty')])); return; }

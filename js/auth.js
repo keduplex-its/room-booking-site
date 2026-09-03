@@ -59,6 +59,7 @@ RB.auth = (function () {
 
   function handleCredential(response) {
     var wasSignedIn = !!idToken;
+    if (!wasSignedIn) RB.ui.signingIn(true);
     idToken = response.credential;
     var p = decode(idToken) || {};
     profile = { email: p.email, name: p.name, picture: p.picture };
@@ -77,6 +78,7 @@ RB.auth = (function () {
   }
 
   function signOut() {
+    RB.ui.signingIn(false);
     idToken = null; profile = null; saveSession(null);
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* 무시 */ }
     if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
@@ -156,6 +158,7 @@ RB.auth = (function () {
 
   /** mock 모드 로그인: mock.js 가 고른 가짜 사용자를 그대로 받는다 */
   function mockSignIn(fakeProfile) {
+    RB.ui.signingIn(true);
     idToken = 'mock';
     profile = fakeProfile;
     exchange().then(function () { if (onSignedIn) onSignedIn(profile); });

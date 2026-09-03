@@ -74,6 +74,20 @@ RB.ui = (function () {
     }, 3500);
   }
 
+  /** 로그인 카드 ↔ "Signing you in…" 스피너 전환. text 로 단계 문구를 바꿀 수 있다. */
+  function signingIn(on, text) {
+    var form = document.getElementById('login-form'), box = document.getElementById('signing-in');
+    if (!form || !box) return;
+    form.hidden = !!on; box.hidden = !on;
+    var p = document.getElementById('signing-in-text');
+    if (p) p.textContent = text || RB.i18n.t('login.signingIn');
+  }
+
+  /** 영역 안에 가운데 스피너 + 문구 */
+  function loadingBlock(text) {
+    return el('div.loading-center', null, [el('div.spinner.small'), el('div', null, [text || RB.i18n.t('loading')])]);
+  }
+
   /** 확인 대화상자 (브라우저 confirm 대체). resolve(true|false) */
   function confirm(text) {
     return new Promise(function (resolve) {
@@ -116,5 +130,5 @@ RB.ui = (function () {
     return function () { btn.classList.remove('busy'); btn.disabled = false; };
   }
 
-  return { el: el, clear: clear, modal: modal, closeModal: closeModal, toast: toast, confirm: confirm, gradeBadge: gradeBadge, progress: progress, busy: busy };
+  return { el: el, clear: clear, modal: modal, closeModal: closeModal, toast: toast, confirm: confirm, gradeBadge: gradeBadge, progress: progress, busy: busy, signingIn: signingIn, loadingBlock: loadingBlock };
 })();

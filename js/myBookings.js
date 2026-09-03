@@ -14,7 +14,7 @@ RB.myBookings = (function () {
 
   function render(host) {
     U.clear(host);
-    host.appendChild(U.el('p.muted', null, [t('loading')]));
+    host.appendChild(U.loadingBlock());
     RB.api.call('myBookings').then(function (data) {
       U.clear(host);
       var items = (data.events || []).map(function (e) { return item(e, false); })

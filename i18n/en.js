@@ -25,6 +25,8 @@ RB.I18N.en = {
   'login.mock.approver': 'Room approver',
   'login.mock.admin': 'Super admin',
   'login.signout': 'Sign out',
+  'login.signingIn': 'Signing you in…',
+  'login.loadingRooms': 'Loading rooms and today\'s bookings…',
   'login.expired': 'Your session expired. Please sign in again.',
   'login.denied': 'This account is not allowed. Use your school account.',
   'login.notConfigured': 'Sign-in is not set up yet (missing Google client ID). Please contact the administrator.',
