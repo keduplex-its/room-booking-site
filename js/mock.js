@@ -148,6 +148,11 @@ RB.mock = (function () {
 
   // ---- API 핸들러 ----------------------------------------------------------
   var handlers = {
+    init: function (p) {
+      return Promise.all([handlers.me(), handlers.resources(), p && p.from ? handlers.board(p) : Promise.resolve(null)])
+        .then(function (r) { return { me: r[0], resources: r[1], board: r[2] }; });
+    },
+
     me: function () {
       var approverOf = RESOURCES.filter(isApprover).map(function (r) { return r.calendarId; });
       var pending = requests.filter(function (q) {

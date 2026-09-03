@@ -82,7 +82,7 @@ RB.ui = (function () {
         el('p', null, [text]),
         el('div.actions', null, [
           el('button.btn', { type: 'button', onclick: function () { m.close(); resolve(false); } }, [RB.i18n.t('btn.close')]),
-          el('button.btn.btn-danger', { type: 'button', onclick: function () { m.close(); resolve(true); } }, [RB.i18n.t('btn.cancelBooking')])
+          el('button.btn.btn-danger', { type: 'button', onclick: function (e) { busy(e.currentTarget); m.close(); resolve(true); } }, [RB.i18n.t('btn.cancelBooking')])
         ])
       ]);
       m = modal(body, { title: '' });
@@ -98,5 +98,23 @@ RB.ui = (function () {
     return el('span.badge.grade-' + level, null, [g && g.label ? g.label : RB.i18n.t('grade.' + code)]);
   }
 
-  return { el: el, clear: clear, modal: modal, closeModal: closeModal, toast: toast, confirm: confirm, gradeBadge: gradeBadge };
+  /** 상단 진행 표시줄. 동시에 여러 호출이 있을 수 있어 카운터로 관리한다. */
+  var pending = 0;
+  function progress(on) {
+    pending = Math.max(0, pending + (on ? 1 : -1));
+    var bar = document.getElementById('progress');
+    if (bar) bar.hidden = pending === 0;
+  }
+
+  /**
+   * 버튼을 "처리 중" 상태로. 두 번 눌림 방지 + 스피너.
+   * @returns {function} 원래 상태로 되돌리는 함수
+   */
+  function busy(btn) {
+    if (!btn) return function () {};
+    btn.classList.add('busy'); btn.disabled = true;
+    return function () { btn.classList.remove('busy'); btn.disabled = false; };
+  }
+
+  return { el: el, clear: clear, modal: modal, closeModal: closeModal, toast: toast, confirm: confirm, gradeBadge: gradeBadge, progress: progress, busy: busy };
 })();

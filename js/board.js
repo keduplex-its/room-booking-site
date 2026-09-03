@@ -14,7 +14,7 @@ window.RB = window.RB || {};
 RB.board = (function () {
   var U = RB.ui, T = RB.time, t = function (k, v) { return RB.i18n.t(k, v); };
 
-  var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [] };
+  var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [], preloaded: null };
 
   function cfg() { return RB.app.state.config; }
   function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
@@ -28,13 +28,25 @@ RB.board = (function () {
   function px(minutes) { return (minutes / slotMin()) * RB.config.SLOT_PX; }
 
   // ---- 데이터 로드 ----------------------------------------------------------
-  function load() {
+  /** 현재 보기의 조회 구간 {from,to} (ISO). app.js 의 init 호출도 이걸 쓴다. */
+  function currentRange() {
     var fromKey = state.view === 'day' ? state.date : T.weekStart(state.date);
     var days = state.view === 'day' ? 1 : 7;
-    return RB.api.call('board', {
-      from: T.make(fromKey, 0).toISOString(),
-      to: T.make(T.addDays(fromKey, days), 0).toISOString()
-    }).then(function (data) {
+    return { from: T.make(fromKey, 0).toISOString(), to: T.make(T.addDays(fromKey, days), 0).toISOString() };
+  }
+  function initialRange() { return currentRange(); }
+
+  /** init 응답에 실려 온 첫 현황판 데이터. 같은 구간이면 load() 가 한 번 재사용한다. */
+  function preload(range, data) { state.preloaded = { range: range, data: data }; }
+
+  function load() {
+    var range = currentRange();
+    var pre = state.preloaded;
+    state.preloaded = null;
+    var p = (pre && pre.range.from === range.from && pre.range.to === range.to)
+      ? Promise.resolve(pre.data)
+      : RB.api.call('board', range);
+    return p.then(function (data) {
       state.events = data.events.map(hydrate);
       state.pending = (data.pending || []).map(hydrate);
     });
@@ -45,11 +57,13 @@ RB.board = (function () {
   function render(host) {
     U.clear(host);
     host.appendChild(toolbar());
-    var wrap = U.el('div.board-wrap');
+    var wrap = U.el('div.board-wrap.loading');
     host.appendChild(wrap);
-    wrap.appendChild(U.el('p.muted', null, [t('loading')]));
+    // 로딩 중에는 직전 데이터로 그려 두어 화면이 비지 않게 한다(첫 로드면 안내문)
+    if (resources().length && state.events.length) wrap.appendChild(state.view === 'day' ? dayGrid() : weekGrid());
+    else wrap.appendChild(U.el('p.muted', null, [t('loading')]));
     load().then(function () {
-      U.clear(wrap);
+      U.clear(wrap); wrap.classList.remove('loading');
       if (!resources().length) { wrap.appendChild(U.el('p.muted', null, [t('board.empty')])); return; }
       wrap.appendChild(state.view === 'day' ? dayGrid() : weekGrid());
       wrap.appendChild(legend());
@@ -244,5 +258,5 @@ RB.board = (function () {
     ]);
   }
 
-  return { render: render, refresh: rerender, state: state };
+  return { render: render, refresh: rerender, state: state, initialRange: initialRange, preload: preload };
 })();

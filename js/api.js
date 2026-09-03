@@ -24,8 +24,15 @@ RB.api = (function () {
    * @returns {Promise<*>}
    */
   function call(action, params) {
-    if (isMock()) return RB.mock.handle(action, params || {});
+    RB.ui.progress(true);
+    var p = isMock()
+      ? RB.mock.handle(action, params || {})
+      : RB.auth.ensureFresh().then(function () { return post(action, params); });
+    return p.then(function (data) { RB.ui.progress(false); return data; },
+      function (err) { RB.ui.progress(false); throw err; });
+  }
 
+  function post(action, params) {
     var body = JSON.stringify({
       idToken: RB.auth.token(),
       action: action,

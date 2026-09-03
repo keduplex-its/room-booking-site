@@ -66,10 +66,10 @@ RB.approvals = (function () {
   }
 
   function decide(action, q, extra, btn) {
-    btn.disabled = true;
+    var done = U.busy(btn);
     RB.api.call(action, Object.assign({ requestId: q.requestId }, extra))
       .then(function () { U.closeModal(); U.toast(t(action === 'approve' ? 'toast.approved' : 'toast.rejected'), 'ok'); render(document.getElementById('view-approvals')); })
-      .catch(function (err) { btn.disabled = false; U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
+      .catch(function (err) { done(); U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
   }
 
   return { render: render };

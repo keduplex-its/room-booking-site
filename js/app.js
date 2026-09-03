@@ -30,8 +30,10 @@ RB.app = (function () {
   }
 
   function onSignedIn(profile) {
-    Promise.all([RB.api.call('me'), RB.api.call('resources')]).then(function (res) {
-      state.user = res[0]; state.config = res[0].config; state.resources = res[1];
+    var range = RB.board.initialRange();
+    RB.api.call('init', range).then(function (res) {
+      state.user = res.me; state.config = res.me.config; state.resources = res.resources;
+      if (res.board) RB.board.preload(range, res.board);
       $('login').hidden = true; $('app').hidden = false;
       $('user-name').textContent = state.user.name || state.user.email;
       $('tab-approvals').hidden = !(state.user.isSuperAdmin || (state.user.approverOf || []).length);

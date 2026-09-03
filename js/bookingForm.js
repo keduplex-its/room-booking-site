@@ -90,10 +90,10 @@ RB.bookingForm = (function () {
         var params = read();
         var problem = validate(params);
         if (problem) { errBox.textContent = problem; errBox.hidden = false; return; }
-        errBox.hidden = true; submitBtn.disabled = true;
+        errBox.hidden = true; var done = U.busy(submitBtn);
         RB.api.call('book', params).then(function (result) { handleResult(result, params); })
           .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); })
-          .then(function () { submitBtn.disabled = false; });
+          .then(done);
       }
     }, [
       field('form.resource', resSel), modeNote,
@@ -170,11 +170,12 @@ RB.bookingForm = (function () {
     var preemptSection = result.preemptAllowed
       ? U.el('div.section', null, [
         field('conflict.reason', reasonIn),
-        U.el('button.btn.btn-warn', { type: 'button', onclick: function () {
+        U.el('button.btn.btn-warn', { type: 'button', onclick: function (e) {
           if (!reasonIn.value.trim()) { reasonIn.focus(); return; }
+          var done = U.busy(e.currentTarget);
           RB.api.call('preempt', { intentKey: result.intentKey, reason: reasonIn.value.trim() })
             .then(function () { U.closeModal(); U.toast(t('result.preemptSent'), 'ok'); RB.board.refresh(); })
-            .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
+            .catch(function (err) { done(); U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
         } }, [t('btn.preempt')])
       ])
       : (r && r.mode === 'AUTO' ? U.el('p.note', null, [t('conflict.protected')]) : null);
@@ -186,9 +187,11 @@ RB.bookingForm = (function () {
       preemptSection,
       U.el('div.actions', null, [
         U.el('button.btn', { type: 'button', onclick: U.closeModal }, [t('btn.close')]),
-        recurring ? U.el('button.btn.btn-primary', { type: 'button', onclick: function () {
+        recurring ? U.el('button.btn.btn-primary', { type: 'button', onclick: function (e) {
+          var done = U.busy(e.currentTarget);
           RB.api.call('bookFreeOnly', { intentKey: result.intentKey }).then(function (res) { handleResult(res, params); })
-            .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
+            .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); })
+            .then(done);
         } }, [t('btn.freeOnly')]) : null
       ])
     ]);
@@ -205,10 +208,10 @@ RB.bookingForm = (function () {
       var reasonIn = U.el('textarea.input', { rows: 3, placeholder: t('conflict.reason.ph') });
       var btn = U.el('button.btn.btn-warn', { type: 'button', onclick: function () {
         if (!reasonIn.value.trim()) { reasonIn.focus(); return; }
-        btn.disabled = true;
+        var done = U.busy(btn);
         RB.api.call('completePreempt', { requestId: requestId, reason: reasonIn.value.trim() })
           .then(function (res) { U.closeModal(); U.toast(res.message || t('result.preemptSent'), 'ok'); RB.board.refresh(); })
-          .catch(function (err) { btn.disabled = false; U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
+          .catch(function (err) { done(); U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
       } }, [t('complete.submit')]);
       var body = U.el('div', null, [
         U.el('p.lead', null, [q.resourceName + ' · ' + T.fmtRange(new Date(q.start), new Date(q.end), lang)]),

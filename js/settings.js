@@ -82,10 +82,10 @@ RB.settings = (function () {
 
   /** 버튼을 잠그고 액션을 실행한 뒤 결과 콜백 */
   function run(btn, action, onDone) {
-    btn.disabled = true;
+    var done = U.busy(btn);
     RB.api.call(action).then(onDone)
       .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); })
-      .then(function () { btn.disabled = false; });
+      .then(done);
   }
 
   return { render: render };

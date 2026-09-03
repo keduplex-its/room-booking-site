@@ -37,6 +37,17 @@ p { margin: 0 0 8px; }
 .lead { font-size: 15px; font-weight: 500; }
 [hidden] { display: none !important; }
 
+/* ---------- 통신 중 표시 ---------- */
+.progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100; background: transparent; }
+.progress-bar { height: 100%; width: 30%; background: var(--accent); border-radius: 0 2px 2px 0; animation: progress-slide 1.1s ease-in-out infinite; }
+@keyframes progress-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+.btn.busy { position: relative; color: transparent !important; pointer-events: none; }
+.btn.busy::after { content: ''; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid rgba(0,0,0,.25); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; color: var(--text); }
+.btn-primary.busy::after, .btn-warn.busy::after { border-color: rgba(255,255,255,.4); border-top-color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.board-wrap.loading { opacity: .55; transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { .progress-bar, .btn.busy::after { animation-duration: 2s; } }
+
 /* ---------- 헤더 ---------- */
 .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
 .header h1 { font-size: 17px; }
