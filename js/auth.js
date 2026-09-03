@@ -65,6 +65,12 @@ RB.auth = (function () {
 
     if (RB.api.isMock()) { RB.mock.renderLogin(opts.buttonEl, mockSignIn); return; }
 
+    // 클라이언트 ID 가 아직 없으면 GIS 를 띄우지 않는다(Google 400 오류 화면 대신 안내).
+    if (!RB.config.CLIENT_ID) {
+      opts.buttonEl.appendChild(RB.ui.el('p.note', null, [RB.i18n.t('login.notConfigured')]));
+      return;
+    }
+
     var script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;

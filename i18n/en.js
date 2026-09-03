@@ -26,6 +26,7 @@ RB.I18N.en = {
   'login.signout': 'Sign out',
   'login.expired': 'Your session expired. Please sign in again.',
   'login.denied': 'This account is not allowed. Use your school account.',
+  'login.notConfigured': 'Sign-in is not set up yet (missing Google client ID). Please contact the administrator.',
   'view.day': 'Day',
   'view.week': 'Week',
   'btn.today': 'Today',
