@@ -1,0 +1,374 @@
+/**
+ * [mock.js] — 백엔드 없이 화면을 돌리는 가짜 API.
+ *
+ * 무엇을 한다: docs/02-아키텍처.md 3절의 API 계약과 같은 모양으로 응답한다. 메모리 안에서
+ *              예약·충돌·승인 흐름을 흉내 내므로 화면 개발과 시연에 쓴다.
+ * 의존:        config.js, time.js
+ * 호출됨:      api.js (mock 모드일 때), auth.js (가짜 로그인 UI)
+ * 주의:        실제 정책 판정(보호 구간, 반복 전개 등)은 단순화되어 있다. 정확한 동작은 백엔드가 기준.
+ *              새로고침하면 데이터가 초기화된다.
+ * 정책 근거:   개발 순서(02-아키텍처.md 10절 1번)
+ */
+window.RB = window.RB || {};
+
+RB.mock = (function () {
+  var T = RB.time;
+
+  // ---- 가짜 사용자 --------------------------------------------------------
+  var USERS = {
+    user: { email: 'minji.kim@jiu.ac', name: 'Minji Kim', roleKey: 'login.mock.user' },
+    approver: { email: 'teacher@cga.sch.id', name: 'Budi Santoso', roleKey: 'login.mock.approver' },
+    admin: { email: 'admin@k-eduplex.net', name: 'Admin', roleKey: 'login.mock.admin' }
+  };
+  var me = null;
+
+  // ---- 설정 (백엔드 Config 시트에 해당) ------------------------------------
+  var CONFIG = {
+    slotMinutes: 30,
+    displayHours: '07:00-21:00',
+    maxAdvanceDays: 180,
+    protectHours: 24,
+    businessHours: '07:00-19:00',
+    escalationHours: 4,
+    expiryHours: 24,
+    minLeadHours: 2,
+    domains: ['jiu.ac', 'k-eduplex.net', 'cga.sch.id'],
+    superAdmins: ['admin@k-eduplex.net', 'jhlee@jiu.ac'],
+    grades: [
+      { code: 'OFFICIAL', label: 'Official event' }, { code: 'CLASS', label: 'Class' },
+      { code: 'MEETING', label: 'Meeting' }, { code: 'OTHER', label: 'Other' }
+    ]
+  };
+
+  // ---- 장소 (Resources 시트) ----------------------------------------------
+  var RESOURCES = [
+    { calendarId: 'r-m101', name: 'M101', aliases: ['Seminar A'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 20, sortOrder: 1, approvers: ['admin@k-eduplex.net'] },
+    { calendarId: 'r-m103', name: 'M103', aliases: [], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 20, sortOrder: 2, approvers: ['admin@k-eduplex.net'] },
+    { calendarId: 'r-m107a', name: 'M107A', aliases: ['Small meeting'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 8, sortOrder: 3, approvers: ['admin@k-eduplex.net'] },
+    { calendarId: 'r-m303', name: 'M303', aliases: ['Media lab'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 30, sortOrder: 4, approvers: ['teacher@cga.sch.id'] },
+    { calendarId: 'r-m310', name: 'M310', aliases: [], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 40, sortOrder: 5, approvers: ['teacher@cga.sch.id'] },
+    { calendarId: 'r-d313', name: 'D313', aliases: ['Manna Hall'], mode: 'APPROVAL', kind: 'ROOM', reservable: true, capacity: 200, sortOrder: 6, approvers: ['teacher@cga.sch.id'] }
+  ];
+
+  // ---- 일정과 요청 (캘린더 + Requests 시트) ---------------------------------
+  var events = [];
+  var requests = [];
+  var seq = 100;
+  var intents = {};
+
+  function ev(calendarId, dayOffset, sh, eh, title, email, name, status, grade) {
+    var key = T.addDays(T.today(), dayOffset);
+    events.push({
+      calendarId: calendarId, eventId: 'e' + (++seq), title: title,
+      start: T.make(key, sh * 60), end: T.make(key, eh * 60),
+      organizerEmail: email, organizerName: name, status: status || 'CONFIRMED', grade: grade || 'MEETING'
+    });
+    return events[events.length - 1];
+  }
+
+  function seed() {
+    ev('r-m101', 0, 9, 11, 'Staff meeting', 'staff@jiu.ac', 'Seojun Park', 'CONFIRMED', 'MEETING');
+    ev('r-m101', 0, 14, 16, 'Parent consultation', 'minji.kim@jiu.ac', 'Minji Kim', 'CONFIRMED', 'MEETING');
+    ev('r-m103', 0, 10, 12, 'Math Olympiad prep', 'teacher@cga.sch.id', 'Budi Santoso', 'CONFIRMED', 'CLASS');
+    ev('r-m107a', 0, 13, 13.5, '1:1 interview', 'staff@jiu.ac', 'Seojun Park', 'CONFIRMED', 'OTHER');
+    ev('r-m303', 0, 8, 10, 'Video production class', 'minji.kim@jiu.ac', 'Minji Kim', 'CONFIRMED', 'CLASS');
+    ev('r-m303', 0, 15, 17, 'Film club editing', 'club@jiu.ac', 'Haneul Lee', 'CONFIRMED', 'OTHER');
+    ev('r-m310', 0, 9, 12, 'Science fair setup', 'admin@cga.sch.id', 'Dewi', 'CONFIRMED', 'OFFICIAL');
+    ev('r-d313', 0, 18, 20, 'Parent assembly', 'admin@k-eduplex.net', 'Admin', 'CONFIRMED', 'OFFICIAL');
+    ev('r-d313', 1, 10, 12, 'Orchestra rehearsal', 'music@jiu.ac', 'Woojin Jung', 'PENDING', 'CLASS');
+    ev('r-m101', 1, 9, 10, 'Weekly sync', 'staff@jiu.ac', 'Seojun Park', 'CONFIRMED', 'MEETING');
+    ev('r-m303', 2, 14, 16, 'Video production class', 'minji.kim@jiu.ac', 'Minji Kim', 'CONFIRMED', 'CLASS');
+    ev('r-m310', 3, 13, 15, 'Parent workshop', 'teacher@cga.sch.id', 'Budi Santoso', 'CONFIRMED', 'MEETING');
+    ev('r-m103', 4, 9, 11, 'Admissions info session prep', 'admin@k-eduplex.net', 'Admin', 'CONFIRMED', 'OFFICIAL');
+
+    var pendingEv = events.filter(function (e) { return e.status === 'PENDING'; })[0];
+    requests.push({
+      requestId: 'R-000201', type: 'BOOK', status: 'PENDING', createdAt: new Date(Date.now() - 3600000),
+      requesterEmail: 'music@jiu.ac', requesterName: 'Woojin Jung', calendarId: 'r-d313', resourceName: 'D313',
+      title: pendingEv.title, start: pendingEv.start, end: pendingEv.end, grade: 'CLASS', headcount: 60,
+      note: 'Need 20 music stands', eventId: pendingEv.eventId, expiresAt: new Date(Date.now() + 20 * 3600000), escalated: false
+    });
+    pendingEv.requestId = 'R-000201';
+
+    var bumped = events.filter(function (e) { return e.calendarId === 'r-m310' && e.title === 'Parent workshop'; })[0];
+    requests.push({
+      requestId: 'R-000202', type: 'PREEMPT', status: 'ESCALATED', createdAt: new Date(Date.now() - 6 * 3600000),
+      requesterEmail: 'admin@cga.sch.id', requesterName: 'Dewi', calendarId: 'r-m310', resourceName: 'M310',
+      title: 'Board meeting', start: bumped.start, end: bumped.end, grade: 'OFFICIAL', headcount: 25,
+      reason: 'Foundation board visit confirmed for this date; no other room fits 25 with projector.',
+      conflicts: [bumped], expiresAt: new Date(Date.now() + 4 * 3600000), escalated: true
+    });
+
+    var staffMeeting = events.filter(function (e) { return e.title === 'Weekly sync'; })[0];
+    requests.push({
+      requestId: 'R-000203', type: 'PREEMPT', status: 'DRAFT', createdAt: new Date(Date.now() - 600000),
+      requesterEmail: 'minji.kim@jiu.ac', requesterName: 'Minji Kim', calendarId: 'r-m101', resourceName: 'M101',
+      title: 'Counselling session', start: staffMeeting.start, end: staffMeeting.end, grade: 'OTHER',
+      eventId: 'cal-evt-1', conflicts: [staffMeeting], expiresAt: new Date(Date.now() + 23 * 3600000), escalated: false
+    });
+  }
+  seed();
+
+  // ---- 도우미 --------------------------------------------------------------
+  function delay(v) { return new Promise(function (r) { setTimeout(function () { r(v); }, 150); }); }
+  function fail(code, message) { return Promise.reject({ code: code, message: message }); }
+  function res(id) { return RESOURCES.filter(function (r) { return r.calendarId === id; })[0]; }
+  function isApprover(r) { return me && (me.email === 'admin@k-eduplex.net' || r.approvers.indexOf(me.email) !== -1); }
+  function conflictsFor(calendarId, start, end, excludeId) {
+    return events.filter(function (e) {
+      return e.calendarId === calendarId && e.eventId !== excludeId && T.overlaps(start, end, e.start, e.end);
+    });
+  }
+  function serialize(e) {
+    var out = Object.assign({}, e);
+    out.start = e.start.toISOString(); out.end = e.end.toISOString();
+    if (me) out.isMine = e.organizerEmail === me.email || e.requesterEmail === me.email;
+    if (e.conflicts) out.conflicts = e.conflicts.map(serialize);
+    if (e.createdAt) out.createdAt = e.createdAt.toISOString();
+    if (e.expiresAt) out.expiresAt = e.expiresAt.toISOString();
+    return out;
+  }
+
+  /** 반복 규칙 → 회차 [{start,end}] (단순 전개, 최대 52회) */
+  function expand(p) {
+    var start = new Date(p.start), end = new Date(p.end);
+    var list = [{ start: start, end: end }];
+    var rec = p.recurrence;
+    if (!rec || !rec.freq || rec.freq === 'none') return list;
+    var stepDays = rec.freq === 'daily' ? 1 : rec.freq === 'weekly' ? 7 : 14;
+    var until = rec.until ? T.make(rec.until, 24 * 60) : null;
+    var count = rec.count ? Number(rec.count) : 52;
+    for (var i = 1; i < count && i < 52; i++) {
+      var s = new Date(start.getTime() + i * stepDays * 86400000);
+      if (until && s > until) break;
+      list.push({ start: s, end: new Date(end.getTime() + i * stepDays * 86400000) });
+    }
+    return list;
+  }
+
+  // ---- API 핸들러 ----------------------------------------------------------
+  var handlers = {
+    me: function () {
+      var approverOf = RESOURCES.filter(isApprover).map(function (r) { return r.calendarId; });
+      var pending = requests.filter(function (q) {
+        return (q.status === 'PENDING' || q.status === 'ESCALATED') && isApprover(res(q.calendarId));
+      }).length;
+      return delay({
+        email: me.email, name: me.name, isSuperAdmin: me.email === 'admin@k-eduplex.net',
+        approverOf: approverOf, pendingApprovals: pending, config: CONFIG,
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1mbXDwXMDWt8wjIZ0KwZQwrKJ54GOnkTz20jgr2b29Go/edit'
+      });
+    },
+
+    resources: function () { return delay(RESOURCES.map(function (r) { return Object.assign({}, r); })); },
+
+    board: function (p) {
+      var from = new Date(p.from), to = new Date(p.to);
+      var list = events.filter(function (e) { return T.overlaps(from, to, e.start, e.end); }).map(serialize);
+      var pend = requests.filter(function (r) {
+        return (r.status === 'PENDING' || r.status === 'ESCALATED') && r.type === 'PREEMPT' && T.overlaps(from, to, r.start, r.end);
+      }).map(serialize);
+      return delay({ events: list, pending: pend });
+    },
+
+    book: function (p) {
+      var r = res(p.calendarId);
+      if (!r) return fail('BAD_REQUEST', 'unknown room');
+      var occ = expand(p);
+      var conflicts = [];
+      occ.forEach(function (o) { conflicts = conflicts.concat(conflictsFor(r.calendarId, o.start, o.end)); });
+
+      if (conflicts.length) {
+        var key = 'i' + (++seq);
+        intents[key] = { p: p, occ: occ, conflicts: conflicts };
+        var first = occ[0];
+        var protectedUntil = new Date(Date.now() + CONFIG.protectHours * 3600000);
+        var alternatives = [];
+        // 같은 장소 다음 빈 시간
+        var dur = first.end - first.start, probe = new Date(first.end.getTime());
+        for (var i = 0; i < 12 && alternatives.length < 1; i++) {
+          if (!conflictsFor(r.calendarId, probe, new Date(probe.getTime() + dur)).length) {
+            alternatives.push({ calendarId: r.calendarId, resourceName: r.name, start: probe.toISOString(), end: new Date(probe.getTime() + dur).toISOString() });
+          }
+          probe = new Date(probe.getTime() + CONFIG.slotMinutes * 60000);
+        }
+        // 같은 시간 다른 장소
+        RESOURCES.forEach(function (o) {
+          if (o.calendarId !== r.calendarId && o.mode === 'AUTO' && alternatives.length < 3 && !conflictsFor(o.calendarId, first.start, first.end).length) {
+            alternatives.push({ calendarId: o.calendarId, resourceName: o.name, start: first.start.toISOString(), end: first.end.toISOString() });
+          }
+        });
+        return delay({
+          kind: 'CONFLICT', intentKey: key, occurrences: occ.length,
+          conflicts: conflicts.map(serialize), alternatives: alternatives,
+          preemptAllowed: conflicts.every(function (c) { return c.start > protectedUntil; }) && r.mode === 'AUTO'
+        });
+      }
+
+      if (r.mode === 'APPROVAL') {
+        var evp = pushEvents(r, p, occ, 'PENDING');
+        var rq = pushRequest('BOOK', r, p, occ[0], evp[0]);
+        return delay({ kind: 'PENDING', request: serialize(rq) });
+      }
+      pushEvents(r, p, occ, 'CONFIRMED');
+      return delay({ kind: 'CONFIRMED', occurrences: occ.length, skipped: 0 });
+    },
+
+    bookFreeOnly: function (p) {
+      var it = intents[p.intentKey];
+      if (!it) return fail('BAD_REQUEST', 'intent expired');
+      var r = res(it.p.calendarId);
+      var free = it.occ.filter(function (o) { return !conflictsFor(r.calendarId, o.start, o.end).length; });
+      pushEvents(r, it.p, free, 'CONFIRMED');
+      return delay({ kind: 'CONFIRMED', occurrences: free.length, skipped: it.occ.length - free.length });
+    },
+
+    preempt: function (p) {
+      var it = intents[p.intentKey];
+      if (!it) return fail('BAD_REQUEST', 'intent expired');
+      if (!p.reason || !p.reason.trim()) return fail('BAD_REQUEST', 'reason required');
+      var r = res(it.p.calendarId);
+      var rq = pushRequest('PREEMPT', r, it.p, it.occ[0], null);
+      rq.reason = p.reason; rq.conflicts = it.conflicts;
+      return delay({ kind: 'PENDING', request: serialize(rq) });
+    },
+
+    myBookings: function () {
+      var mine = events.filter(function (e) { return e.organizerEmail === me.email && e.end > new Date(); })
+        .sort(function (a, b) { return a.start - b.start; }).map(serialize);
+      var reqs = requests.filter(function (q) { return q.requesterEmail === me.email && (q.status === 'DRAFT' || (!q.eventId && (q.status === 'PENDING' || q.status === 'ESCALATED'))); }).map(serialize);
+      return delay({ events: mine, requests: reqs });
+    },
+
+    cancel: function (p) {
+      var idx = -1;
+      events.forEach(function (e, i) { if (e.eventId === p.key) idx = i; });
+      if (idx !== -1) {
+        var e = events[idx];
+        var r = res(e.calendarId);
+        if (e.organizerEmail !== me.email && !isApprover(r)) return fail('FORBIDDEN', 'not yours');
+        events.splice(idx, 1);
+        requests.forEach(function (q) { if (q.eventId === e.eventId && q.status !== 'APPROVED') q.status = 'CANCELLED'; });
+        return delay({ ok: true });
+      }
+      var q = requests.filter(function (x) { return x.requestId === p.key; })[0];
+      if (!q) return fail('NOT_FOUND', 'no such booking');
+      q.status = 'CANCELLED';
+      return delay({ ok: true });
+    },
+
+    approvals: function () {
+      var list = requests.filter(function (q) {
+        return (q.status === 'PENDING' || q.status === 'ESCALATED') && isApprover(res(q.calendarId));
+      }).map(function (q) { return { request: serialize(q), resource: res(q.calendarId) }; });
+      return delay(list);
+    },
+
+    approve: function (p) {
+      var q = requests.filter(function (x) { return x.requestId === p.requestId; })[0];
+      if (!q) return fail('NOT_FOUND', '');
+      q.status = 'APPROVED';
+      if (q.type === 'BOOK') {
+        events.forEach(function (e) { if (e.eventId === q.eventId) e.status = 'CONFIRMED'; });
+      } else {
+        (q.conflicts || []).forEach(function (c) {
+          var i = events.indexOf(c); if (i !== -1) events.splice(i, 1);
+        });
+        events.push({
+          calendarId: q.calendarId, eventId: 'e' + (++seq), title: q.title, start: q.start, end: q.end,
+          organizerEmail: q.requesterEmail, organizerName: q.requesterName, status: 'CONFIRMED', grade: q.grade
+        });
+      }
+      return delay({ ok: true });
+    },
+
+    /** 캘린더 경로 DRAFT 조회 (mock: 시드에 R-000203 하나) */
+    draft: function (p) {
+      var q = requests.filter(function (x) { return x.requestId === p.requestId && x.requesterEmail === me.email; })[0];
+      if (!q) return fail('NOT_FOUND', 'Request not found.');
+      return delay(serialize(q));
+    },
+
+    completePreempt: function (p) {
+      var q = requests.filter(function (x) { return x.requestId === p.requestId; })[0];
+      if (!q || q.status !== 'DRAFT') return fail('REJECTED', 'This request has already been submitted.');
+      if (!p.reason || !p.reason.trim()) return fail('REJECTED', 'A reason is required.');
+      q.status = 'PENDING'; q.reason = p.reason.trim(); q.createdAt = new Date();
+      return delay({ message: 'Preemption request submitted.', request: serialize(q) });
+    },
+
+    /** 관리 콘솔의 리소스 캘린더를 시트로 가져온다 (mock: 비활성 방 2개가 새로 들어온 것으로 흉내) */
+    importRooms: function () {
+      if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');
+      return delay({ added: 2, total: RESOURCES.length + 2 });
+    },
+
+    /** 설정·권한 점검 (mock: 고정 결과) */
+    healthCheck: function () {
+      if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');
+      return delay({ checks: [
+        { ok: true, label: 'Web app runs as owner' },
+        { ok: true, label: 'Calendar write access', detail: '6 of 6 active rooms' },
+        { ok: true, label: 'Approvers resolve to at least one email', detail: '6 rooms' },
+        { ok: false, label: 'Chat webhook configured', detail: 'CHAT_WEBHOOK_URL is empty — announcements are off' },
+        { ok: true, label: 'Time triggers installed', detail: 'sync 5 min, sweep 15 min' }
+      ] });
+    },
+
+    reject: function (p) {
+      var q = requests.filter(function (x) { return x.requestId === p.requestId; })[0];
+      if (!q) return fail('NOT_FOUND', '');
+      q.status = 'REJECTED'; q.decisionNote = p.note;
+      if (q.type === 'BOOK') {
+        var i = -1; events.forEach(function (e, k) { if (e.eventId === q.eventId) i = k; });
+        if (i !== -1) events.splice(i, 1);
+      }
+      return delay({ ok: true });
+    }
+  };
+
+  function pushEvents(r, p, occ, status) {
+    return occ.map(function (o) {
+      var e = {
+        calendarId: r.calendarId, eventId: 'e' + (++seq), title: p.title, start: o.start, end: o.end,
+        organizerEmail: me.email, organizerName: me.name, status: status, grade: p.grade || 'OTHER'
+      };
+      events.push(e);
+      return e;
+    });
+  }
+
+  function pushRequest(type, r, p, occ, event) {
+    var q = {
+      requestId: 'R-' + String(++seq).padStart(6, '0'), type: type, status: 'PENDING', createdAt: new Date(),
+      requesterEmail: me.email, requesterName: me.name, calendarId: r.calendarId, resourceName: r.name,
+      title: p.title, start: occ.start, end: occ.end, grade: p.grade || 'OTHER', headcount: p.headcount, note: p.note,
+      eventId: event ? event.eventId : null, expiresAt: new Date(Date.now() + 24 * 3600000), escalated: false
+    };
+    if (event) event.requestId = q.requestId;
+    requests.push(q);
+    return q;
+  }
+
+  function handle(action, params) {
+    if (!me && action !== 'me') return fail('AUTH', 'not signed in');
+    var h = handlers[action];
+    return h ? h(params) : fail('BAD_REQUEST', 'unknown action ' + action);
+  }
+
+  /** 가짜 로그인 UI: 역할을 골라 들어간다 */
+  function renderLogin(host, onPick) {
+    var U = RB.ui;
+    U.clear(host);
+    host.appendChild(U.el('p.muted', null, [RB.i18n.t('login.mockAs')]));
+    Object.keys(USERS).forEach(function (k) {
+      var u = USERS[k];
+      host.appendChild(U.el('button.btn.btn-block', {
+        type: 'button',
+        onclick: function () { me = u; onPick({ email: u.email, name: u.name }); }
+      }, [RB.i18n.t(u.roleKey) + ' · ' + u.email]));
+    });
+  }
+
+  return { handle: handle, renderLogin: renderLogin };
+})();

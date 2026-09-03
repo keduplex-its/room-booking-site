@@ -1,0 +1,102 @@
+/**
+ * [ui.js] — 화면 공통 부품: 모달, 토스트, 요소 생성 헬퍼.
+ *
+ * 무엇을 한다: 모든 화면 모듈이 같은 모양의 모달·알림을 쓰도록 한 곳에서 만든다.
+ * 의존:        i18n.js
+ * 호출됨:      board.js, bookingForm.js, myBookings.js, approvals.js, auth.js
+ * 주의:        모달은 한 번에 하나만 연다. 열려 있으면 먼저 닫는다.
+ */
+window.RB = window.RB || {};
+
+RB.ui = (function () {
+  /**
+   * 요소 생성 헬퍼. el('div.card.mine', {onclick: fn, title: '..'}, [child, 'text'])
+   * 태그 뒤에 .클래스 를 이어 붙일 수 있다.
+   */
+  function el(spec, attrs, children) {
+    var parts = spec.split('.');
+    var node = document.createElement(parts[0] || 'div');
+    if (parts.length > 1) node.className = parts.slice(1).join(' ');
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k.indexOf('on') === 0 && typeof attrs[k] === 'function') node.addEventListener(k.slice(2), attrs[k]);
+      else if (k === 'style' && typeof attrs[k] === 'object') Object.assign(node.style, attrs[k]);
+      else if (k === 'dataset') Object.assign(node.dataset, attrs[k]);
+      else if (k in node && k !== 'list') node[k] = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) {
+      if (c === null || c === undefined) return;
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return node;
+  }
+
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
+
+  var modalRoot = null;
+
+  /**
+   * 모달 열기. content 는 DOM 노드. 반환값의 close() 로 닫는다.
+   * @param {Element} content
+   * @param {{title?:string, wide?:boolean}} opts
+   */
+  function modal(content, opts) {
+    closeModal();
+    opts = opts || {};
+    var box = el('div.modal' + (opts.wide ? '.modal-wide' : ''), { role: 'dialog', 'aria-modal': 'true' });
+    var head = el('div.modal-head', null, [
+      el('h2', null, [opts.title || '']),
+      el('button.icon-btn', { type: 'button', 'aria-label': RB.i18n.t('btn.close'), onclick: closeModal }, ['×'])
+    ]);
+    box.appendChild(head);
+    box.appendChild(el('div.modal-body', null, [content]));
+    modalRoot = el('div.modal-backdrop', { onclick: function (e) { if (e.target === modalRoot) closeModal(); } }, [box]);
+    document.body.appendChild(modalRoot);
+    document.body.classList.add('modal-open');
+    return { close: closeModal, box: box };
+  }
+
+  function closeModal() {
+    if (modalRoot && modalRoot.parentNode) modalRoot.parentNode.removeChild(modalRoot);
+    modalRoot = null;
+    document.body.classList.remove('modal-open');
+  }
+
+  /** 하단 알림. kind: 'ok' | 'error' | 'info' */
+  function toast(text, kind) {
+    var host = document.getElementById('toasts');
+    var node = el('div.toast.toast-' + (kind || 'info'), null, [text]);
+    host.appendChild(node);
+    setTimeout(function () { node.classList.add('show'); }, 10);
+    setTimeout(function () {
+      node.classList.remove('show');
+      setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 300);
+    }, 3500);
+  }
+
+  /** 확인 대화상자 (브라우저 confirm 대체). resolve(true|false) */
+  function confirm(text) {
+    return new Promise(function (resolve) {
+      var m;
+      var body = el('div', null, [
+        el('p', null, [text]),
+        el('div.actions', null, [
+          el('button.btn', { type: 'button', onclick: function () { m.close(); resolve(false); } }, [RB.i18n.t('btn.close')]),
+          el('button.btn.btn-danger', { type: 'button', onclick: function () { m.close(); resolve(true); } }, [RB.i18n.t('btn.cancelBooking')])
+        ])
+      ]);
+      m = modal(body, { title: '' });
+    });
+  }
+
+  /** 등급 배지. 상위 등급(앞쪽)일수록 진하게 — 담당자 화면에서 눈에 띄게(D-07) */
+  function gradeBadge(code, grades) {
+    if (!code) return null;
+    var idx = (grades || []).map(function (g) { return g.code; }).indexOf(code);
+    var level = idx === -1 ? 'low' : idx === 0 ? 'top' : idx === 1 ? 'high' : 'low';
+    var g = (grades || [])[idx];
+    return el('span.badge.grade-' + level, null, [g && g.label ? g.label : RB.i18n.t('grade.' + code)]);
+  }
+
+  return { el: el, clear: clear, modal: modal, closeModal: closeModal, toast: toast, confirm: confirm, gradeBadge: gradeBadge };
+})();

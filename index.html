@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room Booking</title>
+  <!--
+    [index.html] — 단일 페이지 골격. 로직은 전부 js/ 에 있다.
+    로드 순서가 중요하다: config → time → i18n 사전 → i18n → ui → mock → api → auth → 화면 모듈 → app.
+    화면 언어는 영어만(D-12). 주석·문서는 한국어.
+    ?mock=1 을 붙이면 백엔드 없이 동작한다.
+  -->
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div id="mock-banner" class="banner" hidden data-i18n="mockBanner"></div>
+
+  <header class="header">
+    <div><h1 data-i18n="app.title"></h1><span class="tz" data-i18n="app.tz"></span></div>
+    <div class="header-right">
+      <span id="user-name" class="muted"></span>
+      <button id="signout" class="btn btn-sm" type="button" data-i18n="login.signout"></button>
+    </div>
+  </header>
+
+  <!-- 로그인 전 -->
+  <section id="login" class="login">
+    <h2 data-i18n="login.title"></h2>
+    <p class="muted" data-i18n="login.desc"></p>
+    <div id="login-button"></div>
+  </section>
+
+  <!-- 로그인 후 -->
+  <main id="app" hidden>
+    <nav class="tabs">
+      <button id="tab-board" class="tab active" type="button" data-i18n="nav.board"></button>
+      <button id="tab-mine" class="tab" type="button" data-i18n="nav.mine"></button>
+      <button id="tab-approvals" class="tab" type="button" hidden><span data-i18n="nav.approvals"></span><span id="approvals-badge" class="tab-badge" hidden></span></button>
+      <button id="tab-settings" class="tab" type="button" data-i18n="nav.settings" hidden></button>
+    </nav>
+    <section id="view-board" class="view"></section>
+    <section id="view-mine" class="view" hidden></section>
+    <section id="view-approvals" class="view" hidden></section>
+    <section id="view-settings" class="view" hidden></section>
+  </main>
+
+  <footer class="footer"><a href="privacy.html">Privacy Policy</a> · <a href="mailto:admin@k-eduplex.net">Contact</a></footer>
+
+  <div id="toasts"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/time.js"></script>
+  <script src="i18n/en.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/mock.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/bookingForm.js"></script>
+  <script src="js/myBookings.js"></script>
+  <script src="js/approvals.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
