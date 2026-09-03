@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Room Booking</title>
+  <title>Campus Room Booking</title>
   <!--
     [index.html] — 단일 페이지 골격. 로직은 전부 js/ 에 있다.
     로드 순서가 중요하다: config → time → i18n 사전 → i18n → ui → mock → api → auth → 화면 모듈 → app.
@@ -17,7 +17,7 @@
   <div id="mock-banner" class="banner" hidden data-i18n="mockBanner"></div>
 
   <header class="header">
-    <div><h1 data-i18n="app.title"></h1><span class="tz" data-i18n="app.tz"></span></div>
+    <div class="brand"><img class="logo" src="img/logo.png" alt="K-eduplex" onerror="this.hidden=true"><div><h1 data-i18n="app.title"></h1><span class="tz" data-i18n="app.tz"></span></div></div>
     <div class="header-right">
       <a class="btn btn-sm" href="help.html" data-i18n="nav.help"></a>
       <span id="user-name" class="muted"></span>

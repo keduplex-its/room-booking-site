@@ -11,7 +11,7 @@ window.RB = window.RB || {};
 RB.I18N = RB.I18N || {};
 
 RB.I18N.en = {
-  'app.title': 'Room Booking',
+  'app.title': 'Campus Room Booking',
   'app.tz': 'All times are Jakarta (WIB)',
   'nav.board': 'Board',
   'nav.mine': 'My bookings',
