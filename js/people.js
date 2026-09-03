@@ -22,11 +22,12 @@ RB.people = (function () {
   /** 로그인 뒤 호출. 신선한 사본이 있으면 즉시, 없으면 백그라운드로 받는다. */
   function load() {
     var saved = read(DIR_KEY);
-    if (saved && saved.at && Date.now() - saved.at < TTL && Array.isArray(saved.users)) { dir = saved.users; return Promise.resolve(dir); }
+    var key = (RB.app.state.config && RB.app.state.config.directoryKey) || '';
+    if (saved && saved.at && Date.now() - saved.at < TTL && Array.isArray(saved.users) && (saved.key || '') === key) { dir = saved.users; return Promise.resolve(dir); }
     if (loading) return loading;
     loading = RB.api.call('directory').then(function (res) {
       dir = res.users || [];
-      write(DIR_KEY, { users: dir, at: Date.now() });
+      write(DIR_KEY, { users: dir, at: Date.now(), key: key });
       loading = null;
       return dir;
     }).catch(function () { loading = null; return dir || []; });
