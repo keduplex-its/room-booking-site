@@ -135,9 +135,9 @@ RB.board = (function () {
     var grid = U.el('div.grid');
     grid.appendChild(row(U.el('div.row-label.row-label-head', null, ['']), timeHeader()));
     resources().forEach(function (r) {
-      var label = U.el('div.row-label', null, [
-        U.el('div.row-name', null, [r.name]),
-        U.el('div.row-sub', null, [t('mode.' + r.mode) + (r.capacity ? ' · ' + r.capacity : '')])
+      var label = U.el('div.row-label', { title: r.mode === 'APPROVAL' ? t('mode.APPROVAL') : '' }, [
+        U.el('div.row-name', null, [r.name, r.mode === 'APPROVAL' ? U.el('span.approval-mark', null, ['*']) : null]),
+        U.el('div.row-sub', null, [[(r.aliases || []).join(', '), r.capacity ? String(r.capacity) : ''].filter(String).join(' · ')])
       ]);
       var evs = state.events.filter(function (e) { return e.calendarId === r.calendarId; });
       grid.appendChild(row(label, track(r, state.date, evs)));
@@ -150,7 +150,7 @@ RB.board = (function () {
     var rid = currentWeekResource();
     var r = resources().filter(function (x) { return x.calendarId === rid; })[0];
     var grid = U.el('div.grid');
-    grid.appendChild(row(U.el('div.row-label.row-label-head', null, [r.name]), timeHeader()));
+    grid.appendChild(row(U.el('div.row-label.row-label-head', null, [r.name, r.mode === 'APPROVAL' ? U.el('span.approval-mark', null, ['*']) : null]), timeHeader()));
     var start = T.weekStart(state.date);
     for (var i = 0; i < 7; i++) {
       var key = T.addDays(start, i);
@@ -254,6 +254,7 @@ RB.board = (function () {
       U.el('span.legend-item', null, [U.el('i.swatch.swatch-confirmed'), t('legend.confirmed')]),
       U.el('span.legend-item', null, [U.el('i.swatch.swatch-pending'), t('legend.pending')]),
       U.el('span.legend-item', null, [U.el('i.swatch.swatch-mine'), t('legend.mine')]),
+      resources().some(function (r) { return r.mode === 'APPROVAL'; }) ? U.el('span.legend-item', null, [t('legend.approval')]) : null,
       U.el('span.legend-hint', null, [t('legend.hint')])
     ]);
   }

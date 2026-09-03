@@ -103,6 +103,22 @@ p { margin: 0 0 8px; }
 details.optional { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
 details.optional summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
 
+/* ---------- 참석자 칩 입력 ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: var(--surface); position: relative; cursor: text; }
+.chips:focus-within { border-color: var(--accent); }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: #1e3a8a; border-radius: 999px; padding: 2px 8px 2px 10px; font-size: 13px; max-width: 100%; }
+.chip .chip-name { font-weight: 600; }
+.chip .chip-mail { color: var(--muted); font-size: 12px; }
+.chip button { border: 0; background: none; color: #1e3a8a; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+.chip.invalid { background: #fee2e2; color: #991b1b; }
+.chips input { border: 0; outline: 0; flex: 1; min-width: 160px; padding: 4px 2px; font: inherit; background: transparent; color: var(--text); }
+.suggest { position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); z-index: 20; max-height: 220px; overflow: auto; }
+.suggest-item { padding: 8px 12px; cursor: pointer; display: flex; flex-direction: column; }
+.suggest-item:hover, .suggest-item.active { background: #f3f4f6; }
+.suggest-item .s-name { font-weight: 600; font-size: 13px; }
+.suggest-item .s-mail { color: var(--muted); font-size: 12px; }
+.row-sub .approval-mark, .row-name .approval-mark { color: var(--warn); font-weight: 700; margin-left: 2px; }
+
 /* ---------- 툴바 ---------- */
 .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .toolbar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

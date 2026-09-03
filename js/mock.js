@@ -238,6 +238,17 @@ RB.mock = (function () {
       return delay({ kind: 'PENDING', request: serialize(rq) });
     },
 
+    /** 참석자 자동완성 (mock 디렉터리) */
+    people: function (p) {
+      var q = String(p.q || '').toLowerCase();
+      var dir = [
+        { email: 'staff@jiu.ac', name: 'Seojun Park' }, { email: 'music@jiu.ac', name: 'Woojin Jung' },
+        { email: 'club@jiu.ac', name: 'Haneul Lee' }, { email: 'minji.kim@jiu.ac', name: 'Minji Kim' },
+        { email: 'its@k-eduplex.net', name: 'IT Support' }, { email: 'admin@k-eduplex.net', name: 'Admin' }
+      ];
+      return delay(q.length < 2 ? [] : dir.filter(function (u) { return u.name.toLowerCase().indexOf(q) !== -1 || u.email.indexOf(q) !== -1; }));
+    },
+
     myBookings: function () {
       var mine = events.filter(function (e) { return e.organizerEmail === me.email && e.end > new Date(); })
         .sort(function (a, b) { return a.start - b.start; }).map(serialize);

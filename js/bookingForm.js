@@ -12,6 +12,80 @@ window.RB = window.RB || {};
 
 RB.bookingForm = (function () {
   var U = RB.ui, T = RB.time, t = function (k, v) { return RB.i18n.t(k, v); };
+  var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+  /**
+   * 참석자 칩 입력. 두 글자 이상 치면 디렉터리(people API)에서 후보를 보여주고,
+   * Enter·콤마·Tab 으로 타이핑한 이메일을 칩으로 추가한다. 후보에 없는 주소(CGA 등)도 직접 넣을 수 있다.
+   * @returns {{node:Element, values:function():string[]}}
+   */
+  function guestChips() {
+    var chips = [];            // [{email, name}]
+    var input = U.el('input', { type: 'text', placeholder: t('form.guests.ph'), autocomplete: 'off' });
+    var list = U.el('div.suggest'); list.hidden = true;
+    var box = U.el('div.chips', { onclick: function (e) { if (e.target === box) input.focus(); } }, [input, list]);
+    var timer = null, active = -1, items = [];
+
+    function render() {
+      box.querySelectorAll('.chip').forEach(function (c) { c.remove(); });
+      chips.forEach(function (g, i) {
+        var chip = U.el('span.chip' + (EMAIL_RE.test(g.email) ? '' : '.invalid'), { title: g.email }, [
+          g.name && g.name !== g.email ? U.el('span.chip-name', null, [g.name]) : null,
+          U.el('span.chip-mail', null, [g.name && g.name !== g.email ? g.email : '']),
+          !g.name || g.name === g.email ? U.el('span.chip-name', null, [g.email]) : null,
+          U.el('button', { type: 'button', 'aria-label': 'remove', onclick: function () { chips.splice(i, 1); render(); input.focus(); } }, ['×'])
+        ]);
+        box.insertBefore(chip, input);
+      });
+    }
+    function add(email, name) {
+      var e = String(email || '').trim().toLowerCase().replace(/[,;]+$/, '');
+      if (!e) return;
+      if (chips.some(function (c) { return c.email === e; })) return;
+      chips.push({ email: e, name: name || '' });
+      input.value = ''; hide(); render();
+    }
+    function hide() { list.hidden = true; items = []; active = -1; }
+    function showSuggestions(results) {
+      U.clear(list); items = results; active = -1;
+      if (!results.length) { hide(); return; }
+      results.forEach(function (r, i) {
+        list.appendChild(U.el('div.suggest-item', { onmousedown: function (e) { e.preventDefault(); add(r.email, r.name); } }, [
+          U.el('span.s-name', null, [r.name]), U.el('span.s-mail', null, [r.email])
+        ]));
+      });
+      list.hidden = false;
+    }
+    function search(q) {
+      RB.api.call('people', { q: q }).then(function (res) {
+        if (input.value.trim() !== q) return; // 이미 다른 글자를 치고 있다
+        var taken = chips.map(function (c) { return c.email; });
+        showSuggestions((res || []).filter(function (r) { return taken.indexOf(r.email) === -1; }));
+      }).catch(function () { hide(); });
+    }
+
+    input.addEventListener('input', function () {
+      var q = input.value.trim();
+      clearTimeout(timer);
+      if (q.length < 2 || q.indexOf('@') !== -1 && EMAIL_RE.test(q)) { hide(); return; }
+      timer = setTimeout(function () { search(q); }, 250);
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); active = (active + 1) % items.length; highlight(); }
+      else if (e.key === 'ArrowUp' && items.length) { e.preventDefault(); active = (active - 1 + items.length) % items.length; highlight(); }
+      else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+        if (active >= 0 && items[active]) { e.preventDefault(); add(items[active].email, items[active].name); }
+        else if (input.value.trim()) { e.preventDefault(); add(input.value); }
+        else if (e.key !== 'Tab') e.preventDefault();
+      }
+      else if (e.key === 'Escape') hide();
+      else if (e.key === 'Backspace' && !input.value && chips.length) { chips.pop(); render(); }
+    });
+    input.addEventListener('blur', function () { setTimeout(function () { if (input.value.trim() && EMAIL_RE.test(input.value.trim())) add(input.value); hide(); }, 150); });
+    function highlight() { list.querySelectorAll('.suggest-item').forEach(function (n, i) { n.classList.toggle('active', i === active); }); }
+
+    return { node: box, values: function () { return chips.map(function (c) { return c.email; }); } };
+  }
 
   function cfg() { return RB.app.state.config; }
   function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
@@ -63,7 +137,7 @@ RB.bookingForm = (function () {
     var titleIn = U.el('input.input', { type: 'text', name: 'title', required: true, maxLength: 80, placeholder: t('form.summary.ph') });
     var gradeSel = select('grade', cfg().grades.map(function (g) { return { value: g.code, label: g.label || t('grade.' + g.code) }; }), cfg().grades[cfg().grades.length - 1].code);
     var headIn = U.el('input.input', { type: 'number', name: 'headcount', min: 1, max: 999, placeholder: '' });
-    var guestsIn = U.el('textarea.input', { name: 'guests', rows: 2, placeholder: t('form.guests.ph') });
+    var guests = guestChips();
     var noteIn = U.el('textarea.input', { name: 'note', rows: 2, placeholder: t('form.note.ph') });
     var recSel = select('recFreq', [
       { value: 'none', label: t('rec.none') }, { value: 'weekly', label: t('rec.weekly') },
@@ -100,10 +174,10 @@ RB.bookingForm = (function () {
       field('form.resource', resSel), modeNote,
       U.el('div.grid-3', null, [field('form.date', dateIn), field('form.start', startSel), field('form.end', endSel)]),
       field('form.summary', titleIn),
+      field('form.guests', guests.node, t('form.guests.hint')),
       U.el('details.optional', null, [
         U.el('summary', null, [t('form.optional')]),
         U.el('div.grid-2', null, [field('form.grade', gradeSel), field('form.headcount', headIn)]),
-        field('form.guests', guestsIn),
         field('form.note', noteIn),
         field('form.recurrence', recSel), recExtra
       ]),
@@ -120,19 +194,15 @@ RB.bookingForm = (function () {
         end: T.make(key, Number(endSel.value)).toISOString(),
         title: titleIn.value.trim(), grade: gradeSel.value,
         headcount: headIn.value ? Number(headIn.value) : null, note: noteIn.value.trim() || null,
-        guests: parseGuests(guestsIn.value),
+        guests: guests.values(),
         recurrence: rec
       };
-    }
-    /** 콤마·공백·줄바꿈으로 나눈 이메일 목록 */
-    function parseGuests(text) {
-      return String(text || '').split(/[\s,;]+/).map(function (g) { return g.trim().toLowerCase(); }).filter(String);
     }
     function validate(p) {
       if (!p.calendarId || !dateIn.value || !p.title) return t('form.err.required');
       if (Number(endSel.value) <= Number(startSel.value)) return t('form.err.order');
       if (new Date(p.start) < new Date()) return t('form.err.past');
-      var bad = (p.guests || []).filter(function (g) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g); });
+      var bad = (p.guests || []).filter(function (g) { return !EMAIL_RE.test(g); });
       if (bad.length) return t('form.err.guests', { list: bad.join(', ') });
       return null;
     }
