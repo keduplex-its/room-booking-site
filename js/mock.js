@@ -332,6 +332,13 @@ RB.mock = (function () {
       return delay({ added: 2, total: RESOURCES.length + 2 });
     },
 
+    /** People 추가 (mock: 이메일 수만 셈) */
+    addPeople: function (p) {
+      if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');
+      var emails = (String(p.text || '').match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []);
+      return delay({ parsed: emails.length, added: emails.length, updated: 0, total: 40 + emails.length, preview: emails.slice(0, 3) });
+    },
+
     /** 설정·권한 점검 (mock: 고정 결과) */
     healthCheck: function () {
       if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');

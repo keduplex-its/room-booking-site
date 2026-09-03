@@ -24,6 +24,19 @@ RB.settings = (function () {
       RB.api.call('resources').then(function (list) { RB.app.state.resources = list; });
     }
 
+    var peopleIn = U.el('textarea.input', { rows: 5, placeholder: t('settings.people.ph') });
+    var peopleOut = U.el('p.muted');
+    var peopleBtn = U.el('button.btn.btn-primary', { type: 'button', onclick: function () {
+      if (!peopleIn.value.trim()) { peopleIn.focus(); return; }
+      var done = U.busy(peopleBtn);
+      RB.api.call('addPeople', { text: peopleIn.value }).then(function (r) {
+        peopleOut.textContent = t('settings.people.done', { parsed: r.parsed, added: r.added, updated: r.updated, total: r.total, preview: (r.preview || []).join(', ') });
+        peopleIn.value = '';
+        try { localStorage.removeItem('rb.dir'); } catch (e) { /* 무시 */ }
+        RB.people.load();
+      }).catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); }).then(done);
+    } }, [t('settings.people.add')]);
+
     var healthBtn = U.el('button.btn', { type: 'button', onclick: function () { run(healthBtn, 'healthCheck', healthResult); } }, [t('settings.health')]);
     var healthOut = U.el('div');
     function healthResult(data) {
@@ -68,6 +81,12 @@ RB.settings = (function () {
           kv('settings.policy.grades', (cfg.grades || []).map(function (g) { return t('grade.' + g.code); }).join(' > '))
         ]),
         U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [healthBtn]), healthOut
+      ]),
+      U.el('div.card', null, [
+        U.el('h3', null, [t('settings.people')]),
+        U.el('p.muted', null, [t('settings.people.hint')]),
+        peopleIn,
+        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [peopleBtn]), peopleOut
       ]),
       U.el('div.card', null, [
         U.el('h3', null, [t('settings.notify')]),
