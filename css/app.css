@@ -198,6 +198,12 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 640px) {
   :root { --label-w: 84px; }
   .header .tz { display: none; }
+  .header { padding: 8px 12px; }
+  .header h1 { font-size: 15px; white-space: nowrap; }
+  .brand { gap: 8px; }
+  .brand .logo { height: 22px; }
+  #user-name { display: none; }   /* 좁은 화면에서는 이름을 숨기고 로그아웃 버튼만 */
+  .header-right { gap: 6px; }
   .view { padding: 10px; }
   .grid-3 { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
