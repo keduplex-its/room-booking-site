@@ -16,7 +16,7 @@ RB.config = {
   API_URL: 'https://script.google.com/macros/s/AKfycbzITvPbXwBH_6ljQlpLrMxp-Hrv2pb9UOLHOrHgOkh_nb01w2fOrjzuJ7iYX-rKVPcYpQ/exec',
 
   // Google Identity Services 클라이언트 ID. 사람이 할 일(HANDOFF.md) 완료 후 채운다.
-  CLIENT_ID: '',
+  CLIENT_ID: '704749344755-rmu2v4on2jli8ehu0521a4q5if2u0nqd.apps.googleusercontent.com',
 
   // 모든 시간 표시·계산은 이 타임존 기준. 보는 사람의 PC 시간대는 무시한다.
   // Asia/Jakarta 는 UTC+7 고정(서머타임 없음)이라 오프셋 상수로 계산해도 안전하다.
