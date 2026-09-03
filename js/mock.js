@@ -96,6 +96,7 @@ RB.mock = (function () {
       requesterEmail: 'admin@cga.sch.id', requesterName: 'Dewi', calendarId: 'r-m310', resourceName: 'M310',
       title: 'Board meeting', start: bumped.start, end: bumped.end, grade: 'OFFICIAL', headcount: 25,
       reason: 'Foundation board visit confirmed for this date; no other room fits 25 with projector.',
+      yields: { 'teacher@cga.sch.id': 'no' },
       conflicts: [bumped], expiresAt: new Date(Date.now() + 4 * 3600000), escalated: true
     });
 

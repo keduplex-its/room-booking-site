@@ -44,7 +44,9 @@ RB.approvals = (function () {
       q.conflicts && q.conflicts.length ? U.el('div.kv', null, [
         U.el('b', null, [t('approvals.bumps') + ': ']),
         U.el('ul.list', null, q.conflicts.map(function (c) {
-          return U.el('li', null, [T.fmtRange(new Date(c.start), new Date(c.end), lang), ' · ', c.title, ' · ', c.organizerName || '']);
+          var y = (q.yields || {})[String(c.organizerEmail || '').toLowerCase()];
+          return U.el('li', null, [T.fmtRange(new Date(c.start), new Date(c.end), lang), ' · ', c.title, ' · ', c.organizerName || '',
+            c.organizerEmail && c.organizerEmail !== q.requesterEmail ? U.el('span.badge.' + (y === 'yes' ? 'badge-ok' : y === 'no' ? 'grade-top' : ''), { style: { marginLeft: '6px' } }, [t('approvals.yield') + ': ' + t('approvals.yield.' + (y || 'none'))]) : null]);
         }))
       ]) : null,
       U.el('div.muted.small', null, [
