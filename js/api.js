@@ -33,8 +33,10 @@ RB.api = (function () {
   }
 
   function post(action, params) {
+    // 세션 토큰이 있으면 그걸로, 없으면(session 교환 직전) Google ID 토큰으로 인증한다
     var body = JSON.stringify({
-      idToken: RB.auth.token(),
+      sessionToken: RB.auth.sessionToken(),
+      idToken: RB.auth.sessionToken() ? undefined : RB.auth.token(),
       action: action,
       params: params || {}
     });

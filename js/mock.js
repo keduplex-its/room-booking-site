@@ -356,6 +356,13 @@ RB.mock = (function () {
   }
 
   function handle(action, params) {
+    // 새로고침 뒤 세션 복원: auth.js 가 저장한 세션의 이메일로 가짜 사용자를 되찾는다
+    if (!me) {
+      try {
+        var saved = JSON.parse(localStorage.getItem('rb.session') || 'null');
+        if (saved) Object.keys(USERS).forEach(function (k) { if (USERS[k].email === saved.email) me = USERS[k]; });
+      } catch (e) { /* 무시 */ }
+    }
     if (!me && action !== 'me') return fail('AUTH', 'not signed in');
     var h = handlers[action];
     return h ? h(params) : fail('BAD_REQUEST', 'unknown action ' + action);

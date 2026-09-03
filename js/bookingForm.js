@@ -63,6 +63,7 @@ RB.bookingForm = (function () {
     var titleIn = U.el('input.input', { type: 'text', name: 'title', required: true, maxLength: 80, placeholder: t('form.summary.ph') });
     var gradeSel = select('grade', cfg().grades.map(function (g) { return { value: g.code, label: g.label || t('grade.' + g.code) }; }), cfg().grades[cfg().grades.length - 1].code);
     var headIn = U.el('input.input', { type: 'number', name: 'headcount', min: 1, max: 999, placeholder: '' });
+    var guestsIn = U.el('textarea.input', { name: 'guests', rows: 2, placeholder: t('form.guests.ph') });
     var noteIn = U.el('textarea.input', { name: 'note', rows: 2, placeholder: t('form.note.ph') });
     var recSel = select('recFreq', [
       { value: 'none', label: t('rec.none') }, { value: 'weekly', label: t('rec.weekly') },
@@ -102,6 +103,7 @@ RB.bookingForm = (function () {
       U.el('details.optional', null, [
         U.el('summary', null, [t('form.optional')]),
         U.el('div.grid-2', null, [field('form.grade', gradeSel), field('form.headcount', headIn)]),
+        field('form.guests', guestsIn),
         field('form.note', noteIn),
         field('form.recurrence', recSel), recExtra
       ]),
@@ -118,13 +120,20 @@ RB.bookingForm = (function () {
         end: T.make(key, Number(endSel.value)).toISOString(),
         title: titleIn.value.trim(), grade: gradeSel.value,
         headcount: headIn.value ? Number(headIn.value) : null, note: noteIn.value.trim() || null,
+        guests: parseGuests(guestsIn.value),
         recurrence: rec
       };
+    }
+    /** 콤마·공백·줄바꿈으로 나눈 이메일 목록 */
+    function parseGuests(text) {
+      return String(text || '').split(/[\s,;]+/).map(function (g) { return g.trim().toLowerCase(); }).filter(String);
     }
     function validate(p) {
       if (!p.calendarId || !dateIn.value || !p.title) return t('form.err.required');
       if (Number(endSel.value) <= Number(startSel.value)) return t('form.err.order');
       if (new Date(p.start) < new Date()) return t('form.err.past');
+      var bad = (p.guests || []).filter(function (g) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g); });
+      if (bad.length) return t('form.err.guests', { list: bad.join(', ') });
       return null;
     }
 

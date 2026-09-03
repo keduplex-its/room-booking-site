@@ -6,14 +6,16 @@
  *              mock 모드에서는 가짜 사용자 선택 UI 를 대신 보여준다.
  * 의존:        config.js, i18n.js, (실모드) https://accounts.google.com/gsi/client
  * 호출됨:      app.js 가 init() 을 부르고 onSignedIn 콜백을 받는다. api.js 가 token() 을 읽는다.
- * 주의:        토큰은 sessionStorage 에 보관한다(탭을 닫으면 사라짐). 새로고침해도 만료 전이면 다시 묻지 않는다.
- *              만료가 가까우면 ensureFresh() 가 GIS 에 조용히 새 토큰을 요청한다(같은 Google 세션이면 클릭 없이 끝남).
+ * 주의:        Google ID 토큰은 1시간짜리라 로그인 직후 백엔드 세션 토큰(12시간)으로 교환하고 localStorage 에 보관한다.
+ *              이후 호출은 전부 세션 토큰. 세션이 만료되면 GIS 에 새 ID 토큰을 요청해 다시 교환한다.
  * 정책 근거:   D-03
  */
 window.RB = window.RB || {};
 
 RB.auth = (function () {
   var STORAGE_KEY = 'rb.idt';
+  var SESSION_KEY = 'rb.session';   // {token, exp, email, name}
+  var session = null;
   var idToken = null;
   var profile = null;      // {email, name, picture} — 토큰 payload 에서 읽음. 서버가 최종 검증.
   var onSignedIn = null;
@@ -30,10 +32,26 @@ RB.auth = (function () {
   }
 
   function token() { return idToken; }
+  function sessionToken() { return session && session.exp > Date.now() ? session.token : null; }
   function user() { return profile; }
 
-  /** 만료 60초 전부터는 만료로 본다 */
+  function saveSession(s) {
+    session = s;
+    try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify(s)) : localStorage.removeItem(SESSION_KEY); } catch (e) { /* 저장소 차단 */ }
+  }
+
+  /** Google ID 토큰 → 백엔드 세션 토큰 교환 */
+  function exchange() {
+    if (idToken === 'mock') { saveSession({ token: 'mock', exp: Date.now() + 12 * 3600000, email: profile.email, name: profile.name }); return Promise.resolve(); }
+    session = null;
+    return RB.api.call('session').then(function (s) {
+      saveSession({ token: s.token, exp: s.exp, email: s.user.email, name: s.user.name });
+    });
+  }
+
+  /** 세션 기준 만료 판정(60초 여유). 세션이 없으면 ID 토큰 기준. */
   function isExpired() {
+    if (session) return session.exp - 60000 < Date.now();
     if (!idToken) return true;
     var p = decode(idToken);
     return !p || !p.exp || (p.exp * 1000 - 60000) < Date.now();
@@ -45,14 +63,21 @@ RB.auth = (function () {
     var p = decode(idToken) || {};
     profile = { email: p.email, name: p.name, picture: p.picture };
     try { sessionStorage.setItem(STORAGE_KEY, idToken); } catch (e) { /* 저장소 차단 */ }
-    // 토큰 갱신 대기 중이던 호출들을 깨운다
-    var waiters = refreshWaiters; refreshWaiters = [];
-    waiters.forEach(function (w) { w.resolve(); });
-    if (!wasSignedIn && onSignedIn) onSignedIn(profile);
+    exchange().then(function () {
+      // 세션 갱신을 기다리던 호출들을 깨운다
+      var waiters = refreshWaiters; refreshWaiters = [];
+      waiters.forEach(function (w) { w.resolve(); });
+      if (!wasSignedIn && onSignedIn) onSignedIn(profile);
+    }).catch(function (err) {
+      var waiters = refreshWaiters; refreshWaiters = [];
+      waiters.forEach(function (w) { w.reject && w.reject(err); });
+      RB.ui.toast(err && err.message ? err.message : RB.i18n.t('login.expired'), 'error');
+      signOut();
+    });
   }
 
   function signOut() {
-    idToken = null; profile = null;
+    idToken = null; profile = null; saveSession(null);
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* 무시 */ }
     if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
     if (onSignedOut) onSignedOut();
@@ -64,6 +89,7 @@ RB.auth = (function () {
    */
   function ensureFresh() {
     if (idToken === 'mock' || !isExpired()) return Promise.resolve();
+    if (!session && idToken) return Promise.resolve(); // 세션 교환 호출 자체
     if (!gisReady) return Promise.reject({ code: 'AUTH', message: RB.i18n.t('login.expired') });
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () {
@@ -71,15 +97,15 @@ RB.auth = (function () {
         onAuthError({ message: 'expired' });
         reject({ code: 'AUTH', message: RB.i18n.t('login.expired') });
       }, 8000);
-      refreshWaiters.push({ resolve: function () { clearTimeout(timer); resolve(); } });
+      refreshWaiters.push({ resolve: function () { clearTimeout(timer); resolve(); }, reject: function (e) { clearTimeout(timer); reject(e); } });
       try { google.accounts.id.prompt(); } catch (e) { clearTimeout(timer); reject({ code: 'AUTH', message: RB.i18n.t('login.expired') }); }
     });
   }
 
-  /** 백엔드가 AUTH 오류를 돌려줬을 때 (만료·비허용 도메인) */
+  /** 백엔드가 AUTH 오류를 돌려줬을 때. 서버가 보낸 이유를 그대로 보여준다(원인 구분용). */
   function onAuthError(err) {
     signOut();
-    RB.ui.toast(err && /domain|allowed/i.test(err.message) ? RB.i18n.t('login.denied') : RB.i18n.t('login.expired'), 'error');
+    RB.ui.toast(err && err.message ? err.message : RB.i18n.t('login.expired'), 'error');
   }
 
   /**
@@ -90,25 +116,24 @@ RB.auth = (function () {
     onSignedIn = opts.signedIn;
     onSignedOut = opts.signedOut;
 
+    // 새로고침: 유효한 세션이 남아 있으면 GIS 를 기다리지 않고 바로 들어간다 (mock 모드도 동일)
+    var savedSession = null;
+    try { savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { savedSession = null; }
+    if (savedSession && savedSession.exp > Date.now() + 60000) {
+      session = savedSession;
+      idToken = savedSession.token === 'mock' ? 'mock' : 'session';
+      profile = { email: savedSession.email, name: savedSession.name };
+      if (onSignedIn) onSignedIn(profile);
+    } else {
+      saveSession(null);
+    }
+
     if (RB.api.isMock()) { RB.mock.renderLogin(opts.buttonEl, mockSignIn); return; }
 
     // 클라이언트 ID 가 아직 없으면 GIS 를 띄우지 않는다(Google 400 오류 화면 대신 안내).
     if (!RB.config.CLIENT_ID) {
       opts.buttonEl.appendChild(RB.ui.el('p.note', null, [RB.i18n.t('login.notConfigured')]));
       return;
-    }
-
-    // 새로고침: 만료 전 토큰이 남아 있으면 GIS 를 기다리지 않고 바로 들어간다
-    var saved = null;
-    try { saved = sessionStorage.getItem(STORAGE_KEY); } catch (e) { saved = null; }
-    if (saved) {
-      idToken = saved;
-      if (isExpired()) { idToken = null; try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* 무시 */ } }
-      else {
-        var p = decode(idToken) || {};
-        profile = { email: p.email, name: p.name, picture: p.picture };
-        if (onSignedIn) onSignedIn(profile);
-      }
     }
 
     var script = document.createElement('script');
@@ -133,8 +158,8 @@ RB.auth = (function () {
   function mockSignIn(fakeProfile) {
     idToken = 'mock';
     profile = fakeProfile;
-    if (onSignedIn) onSignedIn(profile);
+    exchange().then(function () { if (onSignedIn) onSignedIn(profile); });
   }
 
-  return { init: init, token: token, user: user, isExpired: isExpired, signOut: signOut, onAuthError: onAuthError, ensureFresh: ensureFresh };
+  return { init: init, token: token, sessionToken: sessionToken, user: user, isExpired: isExpired, signOut: signOut, onAuthError: onAuthError, ensureFresh: ensureFresh };
 })();
