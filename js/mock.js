@@ -50,6 +50,13 @@ RB.mock = (function () {
     { calendarId: 'r-d313', name: 'D313', aliases: ['Manna Hall'], mode: 'APPROVAL', kind: 'ROOM', reservable: true, capacity: 200, sortOrder: 6, approvers: ['teacher@cga.sch.id'] }
   ];
 
+  // ---- 가짜 디렉터리 (참석자 자동완성) --------------------------------------
+  var MOCK_DIR = [
+    { email: 'staff@jiu.ac', name: 'Seojun Park' }, { email: 'music@jiu.ac', name: 'Woojin Jung' },
+    { email: 'club@jiu.ac', name: 'Haneul Lee' }, { email: 'minji.kim@jiu.ac', name: 'Minji Kim' },
+    { email: 'its@k-eduplex.net', name: 'IT Support' }, { email: 'admin@k-eduplex.net', name: 'Admin' }
+  ];
+
   // ---- 일정과 요청 (캘린더 + Requests 시트) ---------------------------------
   var events = [];
   var requests = [];
@@ -239,10 +246,15 @@ RB.mock = (function () {
       return delay({ kind: 'PENDING', request: serialize(rq) });
     },
 
+    /** 디렉터리 전체 (mock) */
+    directory: function () {
+      return delay({ users: MOCK_DIR.map(function (u) { return { e: u.email, n: u.name }; }), at: Date.now() });
+    },
+
     /** 참석자 자동완성 (mock 디렉터리) */
     people: function (p) {
       var q = String(p.q || '').toLowerCase();
-      var dir = [
+      var dir = MOCK_DIR; var _unused = [
         { email: 'staff@jiu.ac', name: 'Seojun Park' }, { email: 'music@jiu.ac', name: 'Woojin Jung' },
         { email: 'club@jiu.ac', name: 'Haneul Lee' }, { email: 'minji.kim@jiu.ac', name: 'Minji Kim' },
         { email: 'its@k-eduplex.net', name: 'IT Support' }, { email: 'admin@k-eduplex.net', name: 'Admin' }

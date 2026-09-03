@@ -57,18 +57,18 @@ RB.bookingForm = (function () {
       list.hidden = false;
     }
     function search(q) {
-      RB.api.call('people', { q: q }).then(function (res) {
+      RB.people.search(q, chips.map(function (c) { return c.email; })).then(function (res) {
         if (input.value.trim() !== q) return; // 이미 다른 글자를 치고 있다
-        var taken = chips.map(function (c) { return c.email; });
-        showSuggestions((res || []).filter(function (r) { return taken.indexOf(r.email) === -1; }));
+        showSuggestions(res || []);
       }).catch(function () { hide(); });
     }
 
     input.addEventListener('input', function () {
       var q = input.value.trim();
       clearTimeout(timer);
-      if (q.length < 2 || q.indexOf('@') !== -1 && EMAIL_RE.test(q)) { hide(); return; }
-      timer = setTimeout(function () { search(q); }, 250);
+      if (!q || (q.indexOf('@') !== -1 && EMAIL_RE.test(q))) { hide(); return; }
+      // 로컬 디렉터리가 있으면 즉시, 없으면(서버 검색) 250ms 디바운스
+      if (RB.people.ready()) search(q); else timer = setTimeout(function () { search(q); }, 250);
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); active = (active + 1) % items.length; highlight(); }
@@ -166,6 +166,7 @@ RB.bookingForm = (function () {
         var problem = validate(params);
         if (problem) { errBox.textContent = problem; errBox.hidden = false; return; }
         errBox.hidden = true; var done = U.busy(submitBtn);
+        RB.people.remember(params.guests);
         RB.api.call('book', params).then(function (result) { handleResult(result, params); })
           .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); })
           .then(done);

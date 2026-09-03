@@ -56,6 +56,7 @@ RB.app = (function () {
       try { localStorage.setItem(SNAP_KEY, JSON.stringify({ email: profile.email, me: res.me, resources: res.resources })); } catch (e) { /* 무시 */ }
       applyUser(res.me, res.resources);
       if (res.board) RB.board.preload(range, res.board);
+      RB.people.load();   // 참석자 자동완성용 디렉터리를 백그라운드로 받아 둔다
       if (!painted || state.tab === 'board') showTab('board');
       var m = location.search.match(/[?&]complete=(R-\d+)/i);
       if (m) RB.bookingForm.openComplete(m[1].toUpperCase());
