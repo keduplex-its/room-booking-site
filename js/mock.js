@@ -223,8 +223,8 @@ RB.mock = (function () {
         var rq = pushRequest('BOOK', r, p, occ[0], evp[0]);
         return delay({ kind: 'PENDING', request: serialize(rq) });
       }
-      pushEvents(r, p, occ, 'CONFIRMED');
-      return delay({ kind: 'CONFIRMED', occurrences: occ.length, skipped: 0 });
+      var made = pushEvents(r, p, occ, 'CONFIRMED');
+      return delay({ kind: 'CONFIRMED', occurrences: occ.length, skipped: 0, eventId: made[0].eventId });
     },
 
     bookFreeOnly: function (p) {
@@ -232,8 +232,8 @@ RB.mock = (function () {
       if (!it) return fail('BAD_REQUEST', 'intent expired');
       var r = res(it.p.calendarId);
       var free = it.occ.filter(function (o) { return !conflictsFor(r.calendarId, o.start, o.end).length; });
-      pushEvents(r, it.p, free, 'CONFIRMED');
-      return delay({ kind: 'CONFIRMED', occurrences: free.length, skipped: it.occ.length - free.length });
+      var made2 = pushEvents(r, it.p, free, 'CONFIRMED');
+      return delay({ kind: 'CONFIRMED', occurrences: free.length, skipped: it.occ.length - free.length, eventId: made2.length ? made2[0].eventId : null });
     },
 
     preempt: function (p) {

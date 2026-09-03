@@ -18,7 +18,7 @@ RB.board = (function () {
 
   var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [], preloaded: null };
   var weekCache = {};   // weekStartKey → {data, at}
-  var CACHE_MS = 60000;
+  var CACHE_MS = 5 * 60000;   // 서버가 30초 공유 캐시 + 쓰기 시 무효화를 하므로 브라우저는 5분 보관. 내 예약·취소는 로컬 즉시 반영
 
   function cfg() { return RB.app.state.config; }
   function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
@@ -42,12 +42,49 @@ RB.board = (function () {
   /** init 응답에 실려 온 첫 현황판 데이터(이번 주). 캐시에 넣는다. */
   function preload(range, data) { weekCache[T.weekStart(state.date)] = { data: data, at: Date.now() }; }
 
-  /** 캐시 비우기. 예약·취소·승인 뒤 호출. */
+  /** 캐시 비우기. 승인 등 다른 사람 데이터가 바뀐 뒤 호출. */
   function invalidate() { weekCache = {}; }
+
+  /**
+   * 내가 만든 예약을 서버 재조회 없이 바로 그린다(서버 왕복 2~5초 절약).
+   * @param {Object} ev {calendarId, eventId, title, start:ISO, end:ISO, status, grade}
+   */
+  function addLocal(ev) {
+    var me = RB.app.state.user || {};
+    var e = Object.assign({ organizerEmail: me.email, organizerName: me.name, isMine: true, isBot: true, direct: false }, ev);
+    var wk = T.weekStart(T.dateKey(new Date(e.start)));
+    var hit = weekCache[wk];
+    if (hit) hit.data.events.push(e);
+    if (wk === T.weekStart(state.date)) rerender();
+  }
+
+  /** 취소한 예약을 화면에서 바로 지운다 */
+  function removeLocal(eventId) {
+    Object.keys(weekCache).forEach(function (k) {
+      var d = weekCache[k].data;
+      d.events = d.events.filter(function (e) { return e.eventId !== eventId; });
+      d.pending = (d.pending || []).filter(function (p) { return p.requestId !== eventId; });
+    });
+    rerender();
+  }
+
+  /** 지금 주의 앞뒤 주를 백그라운드로 받아 둔다(날짜 이동을 기다리지 않게) */
+  function prefetchNeighbors() {
+    var wk = T.weekStart(state.date);
+    [T.addDays(wk, -7), T.addDays(wk, 7)].forEach(function (k) {
+      var hit = weekCache[k];
+      if (hit && Date.now() - hit.at < CACHE_MS) return;
+      weekCache[k] = { data: { events: [], pending: [] }, at: 0, loading: true };
+      RB.api.call('board', { from: T.make(k, 0).toISOString(), to: T.make(T.addDays(k, 7), 0).toISOString() })
+        .then(function (data) { weekCache[k] = { data: data, at: Date.now() }; })
+        .catch(function () { delete weekCache[k]; });
+    });
+  }
 
   function load() {
     var range = currentRange();
     var hit = weekCache[range.weekKey];
+    if (hit && hit.loading) hit = null;   // 미리 받기 진행 중이면 정식으로 다시 요청(같은 요청이 두 번 갈 수 있지만 드묾)
     var p = (hit && Date.now() - hit.at < CACHE_MS)
       ? Promise.resolve(hit.data)
       : RB.api.call('board', { from: range.from, to: range.to }).then(function (data) { weekCache[range.weekKey] = { data: data, at: Date.now() }; return data; });
@@ -73,6 +110,7 @@ RB.board = (function () {
       if (!resources().length) { wrap.appendChild(U.el('p.muted', null, [t('board.empty')])); return; }
       wrap.appendChild(state.view === 'day' ? dayGrid() : weekGrid());
       wrap.appendChild(legend());
+      setTimeout(prefetchNeighbors, 300);
     }).catch(function (err) {
       U.clear(wrap);
       wrap.appendChild(U.el('p.error', null, [err.message || t('error.network')]));
@@ -248,7 +286,7 @@ RB.board = (function () {
           U.closeModal();
           U.confirm(t('confirm.cancel')).then(function (yes) {
             if (!yes) return;
-            RB.api.call('cancel', { key: ev.eventId || ev.requestId, calendarId: resource.calendarId }).then(function () { U.toast(t('toast.cancelled'), 'ok'); rerender(); })
+            RB.api.call('cancel', { key: ev.eventId || ev.requestId, calendarId: resource.calendarId }).then(function () { U.toast(t('toast.cancelled'), 'ok'); removeLocal(ev.eventId || ev.requestId); })
               .catch(function (err) { U.toast(t('result.error', { message: err.message }), 'error'); });
           });
         } }, [t('btn.cancelBooking')]) : null
@@ -267,5 +305,5 @@ RB.board = (function () {
     ]);
   }
 
-  return { render: render, refresh: refresh, state: state, initialRange: initialRange, preload: preload, invalidate: invalidate };
+  return { render: render, refresh: refresh, state: state, initialRange: initialRange, preload: preload, invalidate: invalidate, addLocal: addLocal, removeLocal: removeLocal };
 })();

@@ -217,11 +217,15 @@ RB.bookingForm = (function () {
     if (result.kind === 'CONFIRMED') {
       U.closeModal();
       U.toast(result.skipped ? t('result.confirmedPartial', { ok: result.occurrences, skipped: result.skipped }) : t('result.confirmed'), 'ok');
-      RB.board.refresh();
+      // 단일 예약은 서버 재조회 없이 바로 그린다. 반복 예약은 회차가 여럿이라 재조회.
+      if (result.eventId && !params.recurrence) RB.board.addLocal({ calendarId: params.calendarId, eventId: result.eventId, title: params.title, start: params.start, end: params.end, status: 'CONFIRMED', grade: params.grade });
+      else RB.board.refresh();
     } else if (result.kind === 'PENDING') {
       U.closeModal();
       U.toast(t('result.pending'), 'ok');
-      RB.board.refresh();
+      var q = result.request || {};
+      if (q.eventId && !params.recurrence) RB.board.addLocal({ calendarId: params.calendarId, eventId: q.eventId, title: params.title, start: params.start, end: params.end, status: 'PENDING', grade: params.grade, requestId: q.requestId });
+      else RB.board.refresh();
     } else if (result.kind === 'CONFLICT') {
       showConflict(result, params);
     } else {

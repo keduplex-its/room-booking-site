@@ -43,7 +43,7 @@ RB.myBookings = (function () {
           U.confirm(t('confirm.cancel')).then(function (yes) {
             if (!yes) return;
             RB.api.call('cancel', { key: isRequest ? x.requestId : x.eventId, calendarId: x.calendarId })
-              .then(function () { U.toast(t('toast.cancelled'), 'ok'); render(document.getElementById('view-mine')); })
+              .then(function () { U.toast(t('toast.cancelled'), 'ok'); card.remove(); RB.board.removeLocal(isRequest ? x.requestId : x.eventId); })
               .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); });
           });
         } }, [t('btn.cancelBooking')])
