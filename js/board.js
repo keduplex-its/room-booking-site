@@ -7,6 +7,8 @@
  * 호출됨:      app.js 가 render() 를 부른다.
  * 주의:        일정 블록은 트랙 위에 절대 위치로 놓는다. 좌표 = (분 - 표시 시작 분) / 슬롯 분 × SLOT_PX.
  *              표시 범위 밖으로 걸친 일정은 잘라서 그린다.
+ *              데이터는 항상 **주 단위**로 받아 60초 캐시한다 — 서버 왕복이 2~3초라 날짜 이동마다 부르면 답답하다.
+ *              일 보기는 캐시된 주 데이터를 잘라 쓴다. 예약·취소·승인 뒤에는 refresh() 가 캐시를 비운다.
  * 정책 근거:   D-13(현황판 규칙은 02-아키텍처.md 8절)
  */
 window.RB = window.RB || {};
@@ -15,6 +17,8 @@ RB.board = (function () {
   var U = RB.ui, T = RB.time, t = function (k, v) { return RB.i18n.t(k, v); };
 
   var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [], preloaded: null };
+  var weekCache = {};   // weekStartKey → {data, at}
+  var CACHE_MS = 60000;
 
   function cfg() { return RB.app.state.config; }
   function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
@@ -28,27 +32,29 @@ RB.board = (function () {
   function px(minutes) { return (minutes / slotMin()) * RB.config.SLOT_PX; }
 
   // ---- 데이터 로드 ----------------------------------------------------------
-  /** 현재 보기의 조회 구간 {from,to} (ISO). app.js 의 init 호출도 이걸 쓴다. */
+  /** 현재 날짜가 속한 주(월~일) 구간 {from,to} (ISO). 일/주 보기 모두 이 구간을 받는다. */
   function currentRange() {
-    var fromKey = state.view === 'day' ? state.date : T.weekStart(state.date);
-    var days = state.view === 'day' ? 1 : 7;
-    return { from: T.make(fromKey, 0).toISOString(), to: T.make(T.addDays(fromKey, days), 0).toISOString() };
+    var fromKey = T.weekStart(state.date);
+    return { from: T.make(fromKey, 0).toISOString(), to: T.make(T.addDays(fromKey, 7), 0).toISOString(), weekKey: fromKey };
   }
-  function initialRange() { return currentRange(); }
+  function initialRange() { var r = currentRange(); return { from: r.from, to: r.to }; }
 
-  /** init 응답에 실려 온 첫 현황판 데이터. 같은 구간이면 load() 가 한 번 재사용한다. */
-  function preload(range, data) { state.preloaded = { range: range, data: data }; }
+  /** init 응답에 실려 온 첫 현황판 데이터(이번 주). 캐시에 넣는다. */
+  function preload(range, data) { weekCache[T.weekStart(state.date)] = { data: data, at: Date.now() }; }
+
+  /** 캐시 비우기. 예약·취소·승인 뒤 호출. */
+  function invalidate() { weekCache = {}; }
 
   function load() {
     var range = currentRange();
-    var pre = state.preloaded;
-    state.preloaded = null;
-    var p = (pre && pre.range.from === range.from && pre.range.to === range.to)
-      ? Promise.resolve(pre.data)
-      : RB.api.call('board', range);
+    var hit = weekCache[range.weekKey];
+    var p = (hit && Date.now() - hit.at < CACHE_MS)
+      ? Promise.resolve(hit.data)
+      : RB.api.call('board', { from: range.from, to: range.to }).then(function (data) { weekCache[range.weekKey] = { data: data, at: Date.now() }; return data; });
     return p.then(function (data) {
-      state.events = data.events.map(hydrate);
-      state.pending = (data.pending || []).map(hydrate);
+      // 캐시 데이터는 재사용되므로 복사해서 Date 로 바꾼다
+      state.events = data.events.map(function (e) { return hydrate(Object.assign({}, e)); });
+      state.pending = (data.pending || []).map(function (e) { return hydrate(Object.assign({}, e)); });
     });
   }
   function hydrate(e) { e.start = new Date(e.start); e.end = new Date(e.end); return e; }
@@ -118,6 +124,8 @@ RB.board = (function () {
   }
 
   function rerender() { render(document.getElementById('view-board')); }
+  /** 데이터가 바뀐 뒤(예약·취소·승인): 캐시 비우고 다시 그린다 */
+  function refresh() { invalidate(); rerender(); }
 
   /** 시간 눈금 헤더 (한 시간마다 라벨) */
   function timeHeader() {
@@ -139,7 +147,7 @@ RB.board = (function () {
         U.el('div.row-name', null, [r.name, r.mode === 'APPROVAL' ? U.el('span.approval-mark', null, ['*']) : null]),
         U.el('div.row-sub', null, [[(r.aliases || []).join(', '), r.capacity ? String(r.capacity) : ''].filter(String).join(' · ')])
       ]);
-      var evs = state.events.filter(function (e) { return e.calendarId === r.calendarId; });
+      var evs = state.events.filter(function (e) { return e.calendarId === r.calendarId && T.dateKey(e.start) === state.date; });
       grid.appendChild(row(label, track(r, state.date, evs)));
     });
     return grid;
@@ -259,5 +267,5 @@ RB.board = (function () {
     ]);
   }
 
-  return { render: render, refresh: rerender, state: state, initialRange: initialRange, preload: preload };
+  return { render: render, refresh: refresh, state: state, initialRange: initialRange, preload: preload, invalidate: invalidate };
 })();

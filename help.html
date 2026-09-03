@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User Guide · Room Booking</title>
+  <!--
+    [help.html] — 사용자 매뉴얼(영어, D-12). 정적 페이지. 정책이 바뀌면 이 페이지도 고친다(D-07/08/09/21/22).
+  -->
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .doc { max-width: 760px; margin: 28px auto; padding: 0 20px 60px; line-height: 1.6; }
+    .doc h1 { font-size: 24px; margin-bottom: 4px; }
+    .doc h2 { font-size: 17px; margin: 28px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .doc h3 { margin: 14px 0 6px; }
+    .doc ul, .doc ol { padding-left: 22px; }
+    .doc li { margin: 3px 0; }
+    .doc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 12px; }
+    .doc th, .doc td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .doc th { color: var(--muted); font-weight: 500; width: 32%; }
+    .doc .toc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 18px; }
+    .doc .toc a { display: block; padding: 2px 0; }
+    .doc kbd { background: #eef0f3; border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+    .doc .tip { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div><h1>Room Booking</h1><span class="tz">User Guide</span></div>
+    <div class="header-right"><a class="btn btn-sm btn-primary" href="./">Open the app</a></div>
+  </header>
+
+  <main class="doc">
+    <h1>User Guide</h1>
+    <p class="muted">For JIU and CGA staff · All times are Jakarta (WIB) · Questions: <a href="mailto:admin@k-eduplex.net">admin@k-eduplex.net</a></p>
+
+    <nav class="toc">
+      <a href="#start">1. Getting started</a>
+      <a href="#board">2. Reading the board</a>
+      <a href="#book">3. Making a booking</a>
+      <a href="#conflict">4. When the slot is already taken</a>
+      <a href="#approval">5. Rooms that need approval</a>
+      <a href="#mine">6. Your bookings and cancelling</a>
+      <a href="#calendar">7. Booking from Google Calendar instead</a>
+      <a href="#approvers">8. For room approvers</a>
+      <a href="#faq">9. Questions</a>
+    </nav>
+
+    <h2 id="start">1. Getting started</h2>
+    <ol>
+      <li>Open <a href="./">room.k-eduplex.net</a> on any computer or phone.</li>
+      <li>Click <b>Sign in with Google</b> and choose your school account (jiu.ac, k-eduplex.net or cga.sch.id). Personal Gmail accounts are not accepted.</li>
+      <li>You stay signed in for 12 hours on that browser. Use <b>Sign out</b> (top right) on a shared computer.</li>
+    </ol>
+
+    <h2 id="board">2. Reading the board</h2>
+    <p>The <b>Board</b> shows every bookable room for one day: rooms down the side, hours across the top.</p>
+    <table>
+      <tr><th>Grey block</th><td>Confirmed booking. Click it to see the title and who booked it.</td></tr>
+      <tr><th>Blue block</th><td>Your own booking.</td></tr>
+      <tr><th>Yellow striped block</th><td>Waiting for approval (not confirmed yet).</td></tr>
+      <tr><th>Orange dashed outline</th><td>Someone has asked to take over this slot (a preemption request is pending).</td></tr>
+      <tr><th>Red block</th><td>Not a valid reservation — it was typed directly into the room calendar and overlaps another booking. Ask the administrator.</td></tr>
+      <tr><th><b>*</b> after a room name</th><td>This room needs approval before a booking is confirmed (see section 5).</td></tr>
+    </table>
+    <ul>
+      <li>Use <kbd>‹</kbd> <kbd>›</kbd>, <b>Today</b>, or the date box to move between days. Days in the same week load instantly.</li>
+      <li><b>Week</b> shows one room across seven days — pick the room from the drop-down.</li>
+      <li>Under each room name you see its other names (for example "Media lab") and its capacity.</li>
+    </ul>
+
+    <h2 id="book">3. Making a booking</h2>
+    <ol>
+      <li>Click an <b>empty spot</b> on the board at the time you want (or press <b>+ Book</b>). The room, date and start time are filled in for you.</li>
+      <li>Check the <b>end time</b> and type a <b>title</b> that says what the booking is for.</li>
+      <li><b>Attendees</b> (optional): type a name or email. Colleagues from JIU appear as you type — pick one with the arrow keys or click. For anyone else, type the full email and press <kbd>Enter</kbd>. Attendees receive a calendar invitation once the booking is confirmed.</li>
+      <li>Open <b>Optional</b> for the purpose grade, expected headcount, a note (equipment requests etc.) and repeats (weekly, every 2 weeks, daily — with an end date or a number of times).</li>
+      <li>Press <b>Book</b>.</li>
+    </ol>
+    <table>
+      <tr><th>"Your booking is confirmed"</th><td>Done. The room is yours; you and your attendees get a calendar invitation.</td></tr>
+      <tr><th>"Approval request sent"</th><td>The room needs approval (section 5). You will get an email when it is decided.</td></tr>
+      <tr><th>"This time is already booked"</th><td>Someone got there first. See section 4.</td></tr>
+    </table>
+    <div class="tip">Bookings can be made up to 180 days ahead, in 30-minute steps, between 06:00 and 22:00. Repeats are limited to 6 months (3 months for approval rooms).</div>
+
+    <h2 id="conflict">4. When the slot is already taken</h2>
+    <p>Rooms are first come, first served. If the slot is taken, the app shows who has it and offers:</p>
+    <ul>
+      <li><b>Alternatives</b> — the next free time in the same room, or other rooms free at the same time. Click one to book it instead.</li>
+      <li><b>Request preemption</b> — ask to take over the slot anyway. You must give a <b>reason</b>. This is only possible if the existing booking starts more than 12 hours from now.</li>
+    </ul>
+    <p>What happens after a preemption request:</p>
+    <ol>
+      <li>The <b>current holder</b> gets an email asking whether they can yield the slot. If they say <b>yes</b>, the slot is yours immediately.</li>
+      <li>If they say <b>no</b> or do not answer, the <b>room approver</b> decides, weighing the purpose grade of each booking (official events rank above classes, then meetings, then other).</li>
+      <li>You are emailed either way. If it is granted, the previous holder is notified and offered alternatives.</li>
+      <li>No answer within 24 hours (or 2 hours before the start) means the request is automatically declined and the existing booking stays.</li>
+    </ol>
+    <p>For repeating bookings that clash on some dates only, you can also choose <b>Book free occurrences only</b>.</p>
+
+    <h2 id="approval">5. Rooms that need approval</h2>
+    <p>Rooms marked <b>*</b> (for example large halls) are not first come, first served. Every booking goes to the room approver first. Until they approve, the board shows your booking as yellow striped and attendees are not invited yet. You are emailed when it is approved or rejected; if nobody decides within 24 hours the request expires and the slot is released.</p>
+
+    <h2 id="mine">6. Your bookings and cancelling</h2>
+    <ul>
+      <li><b>My bookings</b> lists your upcoming bookings and pending requests.</li>
+      <li>To cancel, press <b>Cancel booking</b> there, or click your blue block on the board. Attendees are told automatically.</li>
+      <li>Bookings you made in Google Calendar (section 7) belong to your calendar: remove the room or delete the event there.</li>
+      <li>Bookings made here are owned by the booking system, so they cannot be edited from Google Calendar — cancel and rebook instead.</li>
+    </ul>
+
+    <h2 id="calendar">7. Booking from Google Calendar instead</h2>
+    <p>If you are used to Google Calendar, keep booking there — both ways end up in the same room calendars, and the board shows your booking right away.</p>
+    <ol>
+      <li>In Google Calendar, create an event on your own calendar at the time you want.</li>
+      <li>Open the event details and go to the <b>Rooms</b> tab (next to Guests). Search for the room (for example <b>M303</b>) and add it. The picker shows whether the room is free.</li>
+      <li>Save. Within a moment the room <b>accepts</b> the invitation — the event now shows the room as a location and it appears on this board.</li>
+      <li>If the room <b>declines</b>, the slot was already taken. You will get an email from Room Booking with a link to request preemption here (section 4). If it is approved, the room is added back to your original event — you do not need to recreate it.</li>
+      <li>To cancel, remove the room from the event or delete the event in Google Calendar.</li>
+    </ol>
+    <p>Two rules:</p>
+    <ul>
+      <li>Always <b>add the room as a resource</b> to your own event. Do not type events directly into the room's calendar — Google does not check for conflicts there, and the entry is not a valid reservation.</li>
+      <li>If the room declines because the slot is taken, you get an email with a link to request preemption here (section 4). If approved, the room is added back to your original event.</li>
+    </ul>
+    <p>CGA accounts: rooms may not be visible in your Google Calendar because they belong to another organisation — please book here.</p>
+
+    <h2 id="approvers">8. For room approvers</h2>
+    <ul>
+      <li>You get an email for each request that needs you, with <b>Approve</b> and <b>Reject</b> links. One click is enough — the first approver to decide settles it. The links identify you; do not forward them.</li>
+      <li>The <b>Approvals</b> tab in the app shows the same requests with the reason, purpose grade, the booking that would be displaced and whether its holder agreed to yield. The tab badge shows how many are waiting.</li>
+      <li>If nobody decides within 4 working hours, super admins are copied in as a backup and asked to act only if you have not.</li>
+      <li>Rejecting asks for a short note, which is sent to the requester.</li>
+    </ul>
+
+    <h2 id="faq">9. Questions</h2>
+    <table>
+      <tr><th>Why can't I sign in?</th><td>Use your school Google account. If you see "not allowed", your domain is not on the list — contact the administrator.</td></tr>
+      <tr><th>The board looks out of date</th><td>It refreshes when you change days or after you book. Press <kbd>‹</kbd> then <kbd>›</kbd>, or reload the page.</td></tr>
+      <tr><th>I booked but nobody was invited</th><td>Attendees are invited only once the booking is confirmed. For approval rooms that is after approval.</td></tr>
+      <tr><th>Can I change a booking?</th><td>Cancel it and book again. Bookings from Google Calendar are edited there.</td></tr>
+      <tr><th>Who decides preemptions?</th><td>The room approver, unless the current holder agrees to yield. Purpose grade is a guide, not an automatic rule.</td></tr>
+      <tr><th>Where is my data stored?</th><td>Inside the schools' Google Workspace. See the <a href="privacy.html">privacy policy</a>.</td></tr>
+    </table>
+  </main>
+</body>
+</html>

@@ -29,22 +29,39 @@ RB.app = (function () {
     });
   }
 
+  var SNAP_KEY = 'rb.snapshot';   // {email, me, resources} — 다음 로그인 때 첫 화면을 즉시 그리기 위한 사본
+
+  function applyUser(me, resources) {
+    state.user = me; state.config = me.config; state.resources = resources;
+    $('login').hidden = true; $('app').hidden = false;
+    $('user-name').textContent = me.name || me.email;
+    $('tab-approvals').hidden = !(me.isSuperAdmin || (me.approverOf || []).length);
+    $('tab-settings').hidden = !me.isSuperAdmin;
+    updateBadge(me.pendingApprovals || 0);
+  }
+
   function onSignedIn(profile) {
     var range = RB.board.initialRange();
-    RB.api.call('init', range).then(function (res) {
-      state.user = res.me; state.config = res.me.config; state.resources = res.resources;
-      if (res.board) RB.board.preload(range, res.board);
-      $('login').hidden = true; $('app').hidden = false;
-      $('user-name').textContent = state.user.name || state.user.email;
-      $('tab-approvals').hidden = !(state.user.isSuperAdmin || (state.user.approverOf || []).length);
-      $('tab-settings').hidden = !state.user.isSuperAdmin;
-      updateBadge(state.user.pendingApprovals || 0);
+    // 1) 이전 세션의 사본이 있으면 먼저 그린다(서버 왕복 2~3초를 기다리지 않게). 현황판은 서버에서 온다.
+    var snap = null;
+    try { snap = JSON.parse(localStorage.getItem(SNAP_KEY) || 'null'); } catch (e) { snap = null; }
+    var painted = false;
+    if (snap && snap.email === profile.email && snap.me && snap.resources) {
+      applyUser(snap.me, snap.resources);
       showTab('board');
+      painted = true;
+    }
+    // 2) 서버에서 최신 상태 + 이번 주 현황판을 한 번에 받는다
+    RB.api.call('init', range).then(function (res) {
+      try { localStorage.setItem(SNAP_KEY, JSON.stringify({ email: profile.email, me: res.me, resources: res.resources })); } catch (e) { /* 무시 */ }
+      applyUser(res.me, res.resources);
+      if (res.board) RB.board.preload(range, res.board);
+      if (!painted || state.tab === 'board') showTab('board');
       var m = location.search.match(/[?&]complete=(R-\d+)/i);
       if (m) RB.bookingForm.openComplete(m[1].toUpperCase());
     }).catch(function (err) {
       U.toast(err.message || t('error.network'), 'error');
-      RB.auth.signOut();
+      if (!painted) RB.auth.signOut();
     });
   }
 
