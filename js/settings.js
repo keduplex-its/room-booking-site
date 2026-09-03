@@ -89,10 +89,34 @@ RB.settings = (function () {
         U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [peopleBtn]), peopleOut
       ]),
       U.el('div.card', null, [
+        U.el('h3', null, [t('settings.perf')]),
+        U.el('p.muted', null, [t('settings.perf.hint')]),
+        perfTable(),
+        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [U.el('button.btn.btn-sm', { type: 'button', onclick: function () { render(host); } }, [t('settings.perf.refresh')])])
+      ]),
+      U.el('div.card', null, [
         U.el('h3', null, [t('settings.notify')]),
         U.el('p', null, [t('settings.notify.text')])
       ])
     ]));
+  }
+
+  /** 최근 API 호출 시간표: 액션, 총 대기, 서버 처리, 단계 */
+  function perfTable() {
+    var rows = RB.api.recent();
+    if (!rows.length) return U.el('p.muted', null, ['—']);
+    var tbl = U.el('table.kv-table.perf');
+    tbl.appendChild(U.el('tr', null, [U.el('th', null, ['Action']), U.el('th', null, ['Total']), U.el('th', null, ['Server']), U.el('th', null, ['Steps'])]));
+    rows.forEach(function (r) {
+      var steps = (r.steps || []).map(function (s) { return s[0] + ' ' + s[1] + 'ms'; }).join(' → ');
+      tbl.appendChild(U.el('tr', null, [
+        U.el('td', null, [r.action + (r.error ? ' (' + r.error + ')' : '')]),
+        U.el('td', null, [r.total + ' ms']),
+        U.el('td', null, [r.server === null ? '–' : r.server + ' ms']),
+        U.el('td.muted', null, [steps])
+      ]));
+    });
+    return tbl;
   }
 
   function kv(key, value) {

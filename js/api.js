@@ -23,13 +23,20 @@ RB.api = (function () {
    * @param {Object} params
    * @returns {Promise<*>}
    */
+  var recent = [];   // 최근 호출 기록 [{action, total, server, steps, at}] — Settings 탭 성능표
+  function log(action, t0, meta, err) {
+    recent.unshift({ action: action, total: Date.now() - t0, server: meta ? meta.ms : null, steps: meta ? meta.steps : null, error: err ? (err.code || 'ERR') : '', at: new Date() });
+    if (recent.length > 25) recent.pop();
+  }
+
   function call(action, params) {
+    var t0 = Date.now();
     RB.ui.progress(true);
     var p = isMock()
-      ? RB.mock.handle(action, params || {})
+      ? RB.mock.handle(action, params || {}).then(function (d) { return { data: d, meta: null }; })
       : RB.auth.ensureFresh().then(function () { return post(action, params); });
-    return p.then(function (data) { RB.ui.progress(false); return data; },
-      function (err) { RB.ui.progress(false); throw err; });
+    return p.then(function (r) { RB.ui.progress(false); log(action, t0, r.meta); return r.data; },
+      function (err) { RB.ui.progress(false); log(action, t0, null, err); throw err; });
   }
 
   function post(action, params) {
@@ -54,9 +61,9 @@ RB.api = (function () {
           if (err.code === 'AUTH') RB.auth.onAuthError(err);
           throw err;
         }
-        return json.data;
+        return { data: json.data, meta: json.meta || null };
       });
   }
 
-  return { call: call, isMock: isMock };
+  return { call: call, isMock: isMock, recent: function () { return recent.slice(); } };
 })();

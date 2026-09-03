@@ -65,6 +65,9 @@ p { margin: 0 0 8px; }
 .kv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .kv-table td { padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 .kv-table td:first-child { color: var(--muted); width: 45%; }
+.kv-table.perf th { text-align: left; color: var(--muted); font-weight: 500; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+.kv-table.perf td { padding: 4px 6px; width: auto; font-variant-numeric: tabular-nums; }
+.kv-table.perf td:first-child { width: auto; color: var(--text); }
 .check-list { margin: 8px 0 0; padding-left: 18px; }
 .check-list .ok { color: var(--ok); }
 .check-list .bad { color: var(--danger); }
