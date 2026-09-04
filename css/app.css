@@ -143,6 +143,9 @@ details.optional summary { cursor: pointer; color: var(--muted); font-size: 13px
 .row-label { flex: 0 0 var(--label-w); position: sticky; left: 0; background: var(--surface); z-index: 2; padding: 6px 10px; border-right: 1px solid var(--line); min-height: var(--row-h); display: flex; flex-direction: column; justify-content: center; }
 .row-label-head { min-height: 28px; font-weight: 600; }
 .row-label.is-today .row-name { color: var(--accent); }
+.row-label.is-inactive .row-name, .row-label.is-inactive .row-sub { color: var(--muted); }
+.group-tabs { display: inline-flex; margin-right: 8px; }
+.group-tabs .seg { font-weight: 600; }
 .row-name { font-weight: 600; }
 .row-sub { font-size: 11px; color: var(--muted); }
 .track { position: relative; height: var(--row-h); flex: 0 0 auto; background: repeating-linear-gradient(to right, transparent 0, transparent 25px, #f1f3f5 25px, #f1f3f5 26px); cursor: crosshair; }

@@ -47,7 +47,9 @@ RB.mock = (function () {
     { calendarId: 'r-m107a', name: 'M107A', aliases: ['Small meeting'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 8, sortOrder: 3, approvers: ['admin@k-eduplex.net'] },
     { calendarId: 'r-m303', name: 'M303', aliases: ['Media lab'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 30, sortOrder: 4, approvers: ['teacher@cga.sch.id'] },
     { calendarId: 'r-m310', name: 'M310', aliases: [], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 40, sortOrder: 5, approvers: ['teacher@cga.sch.id'] },
-    { calendarId: 'r-d313', name: 'D313', aliases: ['Manna Hall'], mode: 'APPROVAL', kind: 'ROOM', reservable: true, capacity: 200, sortOrder: 6, approvers: ['teacher@cga.sch.id'] }
+    { calendarId: 'r-d313', name: 'D313', aliases: ['Manna Hall'], mode: 'APPROVAL', kind: 'ROOM', reservable: true, capacity: 200, sortOrder: 6, approvers: ['teacher@cga.sch.id'] },
+    { calendarId: 'r-mb01', name: 'MB01', aliases: ['Basement studio'], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 15, sortOrder: 7, approvers: ['admin@k-eduplex.net'], board: 'OTHER', active: true },
+    { calendarId: 'r-u101', name: 'U101', aliases: [], mode: 'AUTO', kind: 'ROOM', reservable: true, capacity: 12, sortOrder: 8, approvers: ['admin@k-eduplex.net'], board: 'OTHER', active: false }
   ];
 
   // ---- 가짜 디렉터리 (참석자 자동완성) --------------------------------------
@@ -177,7 +179,9 @@ RB.mock = (function () {
 
     board: function (p) {
       var from = new Date(p.from), to = new Date(p.to);
-      var list = events.filter(function (e) { return T.overlaps(from, to, e.start, e.end); }).map(serialize);
+      var g = String(p.group || 'MAIN').toUpperCase();
+      var inGroup = function (id) { var r = res(id) || {}; var other = r.board === 'OTHER' || r.active === false; return g === 'ALL' ? true : (g === 'OTHER' ? other : !other); };
+      var list = events.filter(function (e) { return inGroup(e.calendarId) && T.overlaps(from, to, e.start, e.end); }).map(serialize);
       var pend = requests.filter(function (r) {
         return (r.status === 'PENDING' || r.status === 'ESCALATED') && r.type === 'PREEMPT' && T.overlaps(from, to, r.start, r.end);
       }).map(serialize);

@@ -16,12 +16,27 @@ window.RB = window.RB || {};
 RB.board = (function () {
   var U = RB.ui, T = RB.time, t = function (k, v) { return RB.i18n.t(k, v); };
 
-  var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [], preloaded: null };
+  var state = { view: 'day', date: T.today(), weekResource: null, events: [], pending: [], preloaded: null, group: 'MAIN' };
   var weekCache = {};   // weekStartKey → {data, at}
   var CACHE_MS = 5 * 60000;   // 서버가 30초 공유 캐시 + 쓰기 시 무효화를 하므로 브라우저는 5분 보관. 내 예약·취소는 로컬 즉시 반영
 
   function cfg() { return RB.app.state.config; }
-  function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
+  /** 현재 그룹의 공간. MAIN = 활성 + Board≠OTHER. OTHER = Board=OTHER 이거나 비활성(관리용, D-24). */
+  function resources() {
+    return RB.app.state.resources.filter(function (r) {
+      if (r.reservable === false) return false;
+      var other = r.board === 'OTHER' || r.active === false;
+      return state.group === 'OTHER' ? other : !other;
+    });
+  }
+  function hasOtherGroup() {
+    return RB.app.state.resources.some(function (r) { return r.reservable !== false && (r.board === 'OTHER' || r.active === false); });
+  }
+  /** 비활성 공간을 예약할 수 있는가: 담당자·슈퍼 관리자만 */
+  function canBook(r) {
+    var me = RB.app.state.user || {};
+    return r.active !== false || me.isSuperAdmin || (me.approverOf || []).indexOf(r.calendarId) !== -1;
+  }
 
   /** 표시 범위(분) */
   function range() {
@@ -32,15 +47,15 @@ RB.board = (function () {
   function px(minutes) { return (minutes / slotMin()) * RB.config.SLOT_PX; }
 
   // ---- 데이터 로드 ----------------------------------------------------------
-  /** 현재 날짜가 속한 주(월~일) 구간 {from,to} (ISO). 일/주 보기 모두 이 구간을 받는다. */
+  /** 현재 날짜가 속한 주(월~일) 구간 {from,to,group} (ISO). 일/주 보기 모두 이 구간을 받는다. 캐시 키는 그룹+주. */
   function currentRange() {
     var fromKey = T.weekStart(state.date);
-    return { from: T.make(fromKey, 0).toISOString(), to: T.make(T.addDays(fromKey, 7), 0).toISOString(), weekKey: fromKey };
+    return { from: T.make(fromKey, 0).toISOString(), to: T.make(T.addDays(fromKey, 7), 0).toISOString(), group: state.group, weekKey: state.group + '|' + fromKey };
   }
-  function initialRange() { var r = currentRange(); return { from: r.from, to: r.to }; }
+  function initialRange() { var r = currentRange(); return { from: r.from, to: r.to, group: r.group }; }
 
-  /** init 응답에 실려 온 첫 현황판 데이터(이번 주). 캐시에 넣는다. */
-  function preload(range, data) { weekCache[T.weekStart(state.date)] = { data: data, at: Date.now() }; }
+  /** init 응답에 실려 온 첫 현황판 데이터(이번 주, MAIN 그룹). 캐시에 넣는다. */
+  function preload(range, data) { weekCache[(range.group || 'MAIN') + '|' + T.weekStart(state.date)] = { data: data, at: Date.now() }; }
 
   /** 캐시 비우기. 승인 등 다른 사람 데이터가 바뀐 뒤 호출. */
   function invalidate() { weekCache = {}; }
@@ -53,9 +68,12 @@ RB.board = (function () {
     var me = RB.app.state.user || {};
     var e = Object.assign({ organizerEmail: me.email, organizerName: me.name, isMine: true, isBot: true, direct: false }, ev);
     var wk = T.weekStart(T.dateKey(new Date(e.start)));
-    var hit = weekCache[wk];
+    // 그 방이 속한 그룹의 캐시에 넣는다
+    var room = RB.app.state.resources.filter(function (r) { return r.calendarId === e.calendarId; })[0] || {};
+    var g = (room.board === 'OTHER' || room.active === false) ? 'OTHER' : 'MAIN';
+    var hit = weekCache[g + '|' + wk];
     if (hit) hit.data.events.push(e);
-    if (wk === T.weekStart(state.date)) rerender();
+    if (g === state.group && wk === T.weekStart(state.date)) rerender();
   }
 
   /** 취소한 예약을 화면에서 바로 지운다 */
@@ -70,14 +88,15 @@ RB.board = (function () {
 
   /** 지금 주의 앞뒤 주를 백그라운드로 받아 둔다(날짜 이동을 기다리지 않게) */
   function prefetchNeighbors() {
-    var wk = T.weekStart(state.date);
+    var wk = T.weekStart(state.date), g = state.group;
     [T.addDays(wk, -7), T.addDays(wk, 7)].forEach(function (k) {
-      var hit = weekCache[k];
+      var key = g + '|' + k;
+      var hit = weekCache[key];
       if (hit && Date.now() - hit.at < CACHE_MS) return;
-      weekCache[k] = { data: { events: [], pending: [] }, at: 0, loading: true };
-      RB.api.call('board', { from: T.make(k, 0).toISOString(), to: T.make(T.addDays(k, 7), 0).toISOString() })
-        .then(function (data) { weekCache[k] = { data: data, at: Date.now() }; })
-        .catch(function () { delete weekCache[k]; });
+      weekCache[key] = { data: { events: [], pending: [] }, at: 0, loading: true };
+      RB.api.call('board', { from: T.make(k, 0).toISOString(), to: T.make(T.addDays(k, 7), 0).toISOString(), group: g })
+        .then(function (data) { weekCache[key] = { data: data, at: Date.now() }; })
+        .catch(function () { delete weekCache[key]; });
     });
   }
 
@@ -87,7 +106,7 @@ RB.board = (function () {
     if (hit && hit.loading) hit = null;   // 미리 받기 진행 중이면 정식으로 다시 요청(같은 요청이 두 번 갈 수 있지만 드묾)
     var p = (hit && Date.now() - hit.at < CACHE_MS)
       ? Promise.resolve(hit.data)
-      : RB.api.call('board', { from: range.from, to: range.to }).then(function (data) { weekCache[range.weekKey] = { data: data, at: Date.now() }; return data; });
+      : RB.api.call('board', { from: range.from, to: range.to, group: range.group }).then(function (data) { weekCache[range.weekKey] = { data: data, at: Date.now() }; return data; });
     return p.then(function (data) {
       // 캐시 데이터는 재사용되므로 복사해서 Date 로 바꾼다
       state.events = data.events.map(function (e) { return hydrate(Object.assign({}, e)); });
@@ -126,6 +145,7 @@ RB.board = (function () {
     var step = state.view === 'day' ? 1 : 7;
     var bar = U.el('div.toolbar', null, [
       U.el('div.toolbar-group', null, [
+        hasOtherGroup() ? U.el('div.group-tabs', null, [groupTab('MAIN'), groupTab('OTHER')]) : null,
         U.el('button.btn', { type: 'button', onclick: function () { state.date = T.today(); rerender(); } }, [t('btn.today')]),
         U.el('button.icon-btn', { type: 'button', 'aria-label': 'prev', onclick: function () { state.date = T.addDays(state.date, -step); rerender(); } }, ['‹']),
         U.el('input.date-input', { type: 'date', value: state.date, onchange: function (e) { if (e.target.value) { state.date = e.target.value; rerender(); } } }),
@@ -139,6 +159,12 @@ RB.board = (function () {
       ])
     ]);
     return bar;
+  }
+
+  function groupTab(g) {
+    return U.el('button.seg' + (state.group === g ? '.active' : ''), {
+      type: 'button', onclick: function () { state.group = g; state.weekResource = null; rerender(); }
+    }, [t('board.group.' + g)]);
   }
 
   function segment(view) {
@@ -156,7 +182,7 @@ RB.board = (function () {
   }
   function currentWeekResource() {
     if (!state.weekResource || !resources().some(function (r) { return r.calendarId === state.weekResource; })) {
-      state.weekResource = resources()[0].calendarId;
+      state.weekResource = (resources()[0] || {}).calendarId;
     }
     return state.weekResource;
   }
@@ -181,8 +207,8 @@ RB.board = (function () {
     var grid = U.el('div.grid');
     grid.appendChild(row(U.el('div.row-label.row-label-head', null, ['']), timeHeader()));
     resources().forEach(function (r) {
-      var label = U.el('div.row-label', { title: r.mode === 'APPROVAL' ? t('mode.APPROVAL') : '' }, [
-        U.el('div.row-name', null, [r.name, r.mode === 'APPROVAL' ? U.el('span.approval-mark', null, ['*']) : null]),
+      var label = U.el('div.row-label' + (r.active === false ? '.is-inactive' : ''), { title: r.mode === 'APPROVAL' ? t('mode.APPROVAL') : '' }, [
+        U.el('div.row-name', null, [r.name, r.mode === 'APPROVAL' ? U.el('span.approval-mark', null, ['*']) : null, r.active === false ? U.el('span.badge', { style: { marginLeft: '6px' } }, [t('board.inactive')]) : null]),
         U.el('div.row-sub', null, [[(r.aliases || []).join(', '), r.capacity ? String(r.capacity) : ''].filter(String).join(' · ')])
       ]);
       var evs = state.events.filter(function (e) { return e.calendarId === r.calendarId && T.dateKey(e.start) === state.date; });
@@ -236,6 +262,7 @@ RB.board = (function () {
       var minute = rg.from + Math.floor((e.clientX - rect.left) / RB.config.SLOT_PX) * slotMin();
       var start = T.make(dateKey, minute);
       if (start < now) { U.toast(t('form.err.past'), 'error'); return; }
+      if (!canBook(resource)) { U.toast(t('board.inactiveNotice'), 'error'); return; }
       RB.bookingForm.open({ calendarId: resource.calendarId, date: dateKey, startMin: minute, endMin: Math.min(minute + 60, rg.to) });
     });
 

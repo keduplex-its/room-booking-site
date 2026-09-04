@@ -79,7 +79,7 @@ RB.settings = (function () {
         U.el('table.kv-table', null, RB.app.state.resources.map(function (r) {
           return U.el('tr', null, [
             U.el('td', null, [r.name + (r.aliases && r.aliases.length ? ' · ' + r.aliases.join(', ') : '')]),
-            U.el('td', null, [t('mode.' + r.mode) + (r.capacity ? ' · ' + r.capacity : '') + (r.approvers ? ' · ' + r.approvers.join(', ') : '')])
+            U.el('td', null, [t('board.group.' + (r.board || 'MAIN')) + (r.active === false ? ' · ' + t('board.inactive') : '') + ' · ' + t('mode.' + r.mode) + (r.capacity ? ' · ' + r.capacity : '') + (r.approvers ? ' · ' + r.approvers.join(', ') : '')])
           ]);
         }))
       ]),

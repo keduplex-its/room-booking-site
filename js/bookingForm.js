@@ -88,7 +88,14 @@ RB.bookingForm = (function () {
   }
 
   function cfg() { return RB.app.state.config; }
-  function resources() { return RB.app.state.resources.filter(function (r) { return r.reservable !== false; }); }
+  /** 예약 폼 장소 목록: 활성 공간 전부 + (담당자·관리자에게만) 비활성 공간 */
+  function resources() {
+    var me = RB.app.state.user || {};
+    return RB.app.state.resources.filter(function (r) {
+      if (r.reservable === false) return false;
+      return r.active !== false || me.isSuperAdmin || (me.approverOf || []).indexOf(r.calendarId) !== -1;
+    });
+  }
 
   /** 표시 범위를 슬롯으로 나눈 시각 옵션 [{value:분, label:'07:00'}] (endInclusive 면 마지막 경계 포함) */
   function timeOptions(endInclusive) {
@@ -127,7 +134,7 @@ RB.bookingForm = (function () {
       endMin: preset.endMin !== undefined ? preset.endMin : timeOptions()[0].value + 60
     };
 
-    var resSel = select('calendarId', list.map(function (r) { return { value: r.calendarId, label: r.name + (r.aliases && r.aliases.length ? ' · ' + r.aliases[0] : '') }; }), initial.calendarId, updateModeNote);
+    var resSel = select('calendarId', list.map(function (r) { return { value: r.calendarId, label: r.name + (r.aliases && r.aliases.length ? ' · ' + r.aliases[0] : '') + (r.active === false ? ' (' + t('board.inactive') + ')' : '') }; }), initial.calendarId, updateModeNote);
     var dateIn = U.el('input.input', { type: 'date', name: 'date', value: initial.date, min: T.today(), max: maxDate, required: true });
     var startSel = select('start', timeOptions(false), initial.startMin, function () {
       // 시작을 바꾸면 종료를 시작+1h 로 따라가게 해 "종료가 시작보다 앞" 실수를 줄인다
