@@ -88,13 +88,15 @@ RB.bookingForm = (function () {
   }
 
   function cfg() { return RB.app.state.config; }
-  /** 예약 폼 장소 목록: 활성 공간 전부 + (담당자·관리자에게만) 비활성 공간 */
+  /** 예약 폼 장소 목록: 활성 공간 전부 + (담당자·관리자에게만) 비활성 공간. Rooms(MAIN) 먼저, Other spaces 뒤에. */
   function resources() {
     var me = RB.app.state.user || {};
-    return RB.app.state.resources.filter(function (r) {
+    var list = RB.app.state.resources.filter(function (r) {
       if (r.reservable === false) return false;
       return r.active !== false || me.isSuperAdmin || (me.approverOf || []).indexOf(r.calendarId) !== -1;
     });
+    var isOther = function (r) { return r.board === 'OTHER' || r.active === false; };
+    return list.filter(function (r) { return !isOther(r); }).concat(list.filter(isOther));
   }
 
   /** 표시 범위를 슬롯으로 나눈 시각 옵션 [{value:분, label:'07:00'}] (endInclusive 면 마지막 경계 포함) */
@@ -134,7 +136,20 @@ RB.bookingForm = (function () {
       endMin: preset.endMin !== undefined ? preset.endMin : timeOptions()[0].value + 60
     };
 
-    var resSel = select('calendarId', list.map(function (r) { return { value: r.calendarId, label: r.name + (r.aliases && r.aliases.length ? ' · ' + r.aliases[0] : '') + (r.active === false ? ' (' + t('board.inactive') + ')' : '') }; }), initial.calendarId, updateModeNote);
+    var resSel = U.el('select.select', { name: 'calendarId', onchange: updateModeNote });
+    (function () {
+      var isOther = function (r) { return r.board === 'OTHER' || r.active === false; };
+      var groups = [['MAIN', list.filter(function (r) { return !isOther(r); })], ['OTHER', list.filter(isOther)]];
+      groups.forEach(function (g) {
+        if (!g[1].length) return;
+        var og = U.el('optgroup', { label: t('board.group.' + g[0]) });
+        g[1].forEach(function (r) {
+          og.appendChild(U.el('option', { value: r.calendarId, selected: r.calendarId === initial.calendarId },
+            [r.name + (r.aliases && r.aliases.length ? ' · ' + r.aliases[0] : '') + (r.active === false ? ' (' + t('board.inactive') + ')' : '')]));
+        });
+        resSel.appendChild(og);
+      });
+    })();
     var dateIn = U.el('input.input', { type: 'date', name: 'date', value: initial.date, min: T.today(), max: maxDate, required: true });
     var startSel = select('start', timeOptions(false), initial.startMin, function () {
       // 시작을 바꾸면 종료를 시작+1h 로 따라가게 해 "종료가 시작보다 앞" 실수를 줄인다
