@@ -332,6 +332,12 @@ RB.mock = (function () {
       return delay({ added: 2, total: RESOURCES.length + 2 });
     },
 
+    /** 웹훅 저장 (mock) */
+    setWebhook: function (p) {
+      if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');
+      return delay({ ok: true, configured: !!p.url });
+    },
+
     /** People 추가 (mock: 이메일 수만 셈) */
     addPeople: function (p) {
       if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');

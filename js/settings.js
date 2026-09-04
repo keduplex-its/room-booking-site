@@ -37,6 +37,20 @@ RB.settings = (function () {
       }).catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); }).then(done);
     } }, [t('settings.people.add')]);
 
+    var webhookStatus = U.el('p', null, [t(user.webhookConfigured ? 'settings.webhook.status.on' : 'settings.webhook.status.off')]);
+    var webhookIn = U.el('input.input', { type: 'url', placeholder: t('settings.webhook.ph'), autocomplete: 'off' });
+    var webhookOut = U.el('p.muted');
+    function saveWebhook(url) {
+      var done = U.busy(webhookBtn);
+      RB.api.call('setWebhook', { url: url }).then(function (r) {
+        webhookOut.textContent = t(r.configured ? 'settings.webhook.on' : 'settings.webhook.off');
+        webhookStatus.textContent = t(r.configured ? 'settings.webhook.status.on' : 'settings.webhook.status.off');
+        user.webhookConfigured = r.configured; webhookIn.value = '';
+      }).catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); }).then(done);
+    }
+    var webhookBtn = U.el('button.btn.btn-primary', { type: 'button', onclick: function () { if (!webhookIn.value.trim()) { webhookIn.focus(); return; } saveWebhook(webhookIn.value.trim()); } }, [t('settings.webhook.save')]);
+    var webhookOff = U.el('button.btn', { type: 'button', onclick: function () { saveWebhook(''); } }, [t('settings.webhook.clear')]);
+
     var healthBtn = U.el('button.btn', { type: 'button', onclick: function () { run(healthBtn, 'healthCheck', healthResult); } }, [t('settings.health')]);
     var healthOut = U.el('div');
     function healthResult(data) {
@@ -87,6 +101,13 @@ RB.settings = (function () {
         U.el('p.muted', null, [t('settings.people.hint')]),
         peopleIn,
         U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [peopleBtn]), peopleOut
+      ]),
+      U.el('div.card', null, [
+        U.el('h3', null, [t('settings.webhook')]),
+        U.el('p.muted', null, [t('settings.webhook.hint')]),
+        webhookStatus,
+        webhookIn,
+        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [webhookBtn, webhookOff]), webhookOut
       ]),
       U.el('div.card', null, [
         U.el('h3', null, [t('settings.perf')]),
