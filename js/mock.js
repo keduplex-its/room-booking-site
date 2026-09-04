@@ -333,6 +333,7 @@ RB.mock = (function () {
     },
 
     testEmail: function () { return delay({ sent: 3, to: me.email }); },
+    testAnnounce: function () { return delay({ ok: true, id: '123' }); },
 
     /** 웹훅 저장 (mock) */
     setWebhook: function (p) {

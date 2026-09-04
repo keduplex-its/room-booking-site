@@ -166,6 +166,8 @@ RB.I18N.en = {
   'settings.webhook.status.on': 'Currently: on',
   'settings.webhook.status.off': 'Currently: off',
   'settings.testEmail': 'Send me a test email',
+  'settings.testAnnounce': 'Send a test announcement',
+  'settings.testAnnounce.done': 'Posted to the Chat space. Check which of the three name styles renders as an @mention.',
   'settings.testEmail.done': 'Sent {sent} sample emails to {to}. Check your inbox (and spam).',
   'settings.notify': 'How admins are notified',
   'settings.notify.text': 'Approvers get an email with approve/reject links the moment a request needs them. After 4 business hours without a decision, super admins get an escalation email. Confirmed and cancelled bookings are posted to the Chat space. The Approvals tab shows a live count.',

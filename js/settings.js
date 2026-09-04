@@ -50,6 +50,7 @@ RB.settings = (function () {
     }
     var webhookBtn = U.el('button.btn.btn-primary', { type: 'button', onclick: function () { if (!webhookIn.value.trim()) { webhookIn.focus(); return; } saveWebhook(webhookIn.value.trim()); } }, [t('settings.webhook.save')]);
     var webhookOff = U.el('button.btn', { type: 'button', onclick: function () { saveWebhook(''); } }, [t('settings.webhook.clear')]);
+    var announceBtn = U.el('button.btn', { type: 'button', onclick: function () { run(announceBtn, 'testAnnounce', function () { webhookOut.textContent = t('settings.testAnnounce.done'); }); } }, [t('settings.testAnnounce')]);
 
     var testOut = U.el('p.muted');
     var testBtn = U.el('button.btn', { type: 'button', onclick: function () { run(testBtn, 'testEmail', function (r) { testOut.textContent = t('settings.testEmail.done', { sent: r.sent, to: r.to }); }); } }, [t('settings.testEmail')]);
@@ -110,7 +111,7 @@ RB.settings = (function () {
         U.el('p.muted', null, [t('settings.webhook.hint')]),
         webhookStatus,
         webhookIn,
-        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [webhookBtn, webhookOff]), webhookOut
+        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [webhookBtn, webhookOff, announceBtn]), webhookOut
       ]),
       U.el('div.card', null, [
         U.el('h3', null, [t('settings.perf')]),
