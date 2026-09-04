@@ -332,6 +332,8 @@ RB.mock = (function () {
       return delay({ added: 2, total: RESOURCES.length + 2 });
     },
 
+    testEmail: function () { return delay({ sent: 3, to: me.email }); },
+
     /** 웹훅 저장 (mock) */
     setWebhook: function (p) {
       if (me.email !== 'admin@k-eduplex.net') return fail('FORBIDDEN', 'super admin only');

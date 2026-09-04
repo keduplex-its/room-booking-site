@@ -51,6 +51,9 @@ RB.settings = (function () {
     var webhookBtn = U.el('button.btn.btn-primary', { type: 'button', onclick: function () { if (!webhookIn.value.trim()) { webhookIn.focus(); return; } saveWebhook(webhookIn.value.trim()); } }, [t('settings.webhook.save')]);
     var webhookOff = U.el('button.btn', { type: 'button', onclick: function () { saveWebhook(''); } }, [t('settings.webhook.clear')]);
 
+    var testOut = U.el('p.muted');
+    var testBtn = U.el('button.btn', { type: 'button', onclick: function () { run(testBtn, 'testEmail', function (r) { testOut.textContent = t('settings.testEmail.done', { sent: r.sent, to: r.to }); }); } }, [t('settings.testEmail')]);
+
     var healthBtn = U.el('button.btn', { type: 'button', onclick: function () { run(healthBtn, 'healthCheck', healthResult); } }, [t('settings.health')]);
     var healthOut = U.el('div');
     function healthResult(data) {
@@ -117,7 +120,8 @@ RB.settings = (function () {
       ]),
       U.el('div.card', null, [
         U.el('h3', null, [t('settings.notify')]),
-        U.el('p', null, [t('settings.notify.text')])
+        U.el('p', null, [t('settings.notify.text')]),
+        U.el('div.actions', { style: { justifyContent: 'flex-start' } }, [testBtn]), testOut
       ])
     ]));
   }
