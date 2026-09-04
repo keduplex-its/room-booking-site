@@ -222,7 +222,7 @@ RB.mock = (function () {
         });
       }
 
-      if (r.mode === 'APPROVAL') {
+      if (r.mode === 'APPROVAL' && !isApprover(r)) {   // D-26: 담당자 본인은 바로 확정
         var evp = pushEvents(r, p, occ, 'PENDING');
         var rq = pushRequest('BOOK', r, p, occ[0], evp[0]);
         return delay({ kind: 'PENDING', request: serialize(rq) });

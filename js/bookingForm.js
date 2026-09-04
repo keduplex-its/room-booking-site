@@ -185,7 +185,10 @@ RB.bookingForm = (function () {
     var modeNote = U.el('p.note');
     function updateModeNote() {
       var r = list.filter(function (x) { return x.calendarId === resSel.value; })[0];
-      modeNote.textContent = r && r.mode === 'APPROVAL' ? t('form.approvalNote') : '';
+      // D-26: 그 방의 담당자·슈퍼 관리자 본인은 승인 없이 바로 확정되므로 안내를 다르게
+      var me = RB.app.state.user || {};
+      var selfApprover = r && (me.isSuperAdmin || (me.approverOf || []).indexOf(r.calendarId) !== -1);
+      modeNote.textContent = r && r.mode === 'APPROVAL' ? t(selfApprover ? 'form.approvalNoteSelf' : 'form.approvalNote') : '';
       modeNote.hidden = !modeNote.textContent;
     }
     updateModeNote();

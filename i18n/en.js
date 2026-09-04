@@ -78,6 +78,7 @@ RB.I18N.en = {
   'form.recurrence.count': 'Times',
   'form.optional': 'Optional',
   'form.approvalNote': 'This room requires approval before the booking is confirmed.',
+  'form.approvalNoteSelf': 'This room requires approval, but as its approver your booking is confirmed right away.',
   'form.editTitle': 'Edit booking',
   'form.editNote': 'Attendees get an updated invitation. To change the room or make it repeat, cancel and book again.',
   'form.err.required': 'Room, date, time and title are required.',
