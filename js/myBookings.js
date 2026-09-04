@@ -39,6 +39,8 @@ RB.myBookings = (function () {
       ]),
       U.el('div.card-title', null, [x.title]),
       U.el('div.muted', null, [T.fmtRange(start, end, lang), x.requestId ? ' · ' + x.requestId : '']),
+      // 편집이 안 되는 예약은 이유를 한 줄로(캘린더에서 잡은 예약 / 반복 / 대기 중) — "왜 Edit 이 없지?" 문의 방지
+      !isRequest && !x.editable ? U.el('div.muted.small', null, [t(!x.isBot ? 'mine.noEdit.calendar' : x.recurring ? 'mine.noEdit.recurring' : 'mine.noEdit.pending')]) : null,
       U.el('div.actions', null, [
         isDraft ? U.el('button.btn.btn-warn.btn-sm', { type: 'button', onclick: function () { RB.bookingForm.openComplete(x.requestId); } }, [t('mine.addReason')]) : null,
         // 사이트 예약(단일 회차·확정)만 편집 가능(D-25). 저장되면 목록을 다시 받는다.
