@@ -2,6 +2,7 @@
  * [approvals.js] — 승인 탭 (장소 담당자·슈퍼 관리자 전용).
  *
  * 무엇을 한다: 내가 처리할 수 있는 대기 요청을 카드로 보여주고 한 클릭 승인, 사유 입력 후 반려한다.
+ *              그 아래 최근 결정 기록(승인·반려·만료)을 일정이 지날 때까지 읽기 전용으로 보여준다.
  *              선점 요청은 밀려날 기존 예약과 사유를 함께 보여준다. 상위 등급은 배지로 강조한다(D-07).
  * 의존:        time.js, i18n.js, ui.js, api.js
  * 호출됨:      app.js (권한이 있을 때만 탭 노출)
@@ -16,11 +17,18 @@ RB.approvals = (function () {
   function render(host) {
     U.clear(host);
     host.appendChild(U.loadingBlock());
-    RB.api.call('approvals').then(function (list) {
+    RB.api.call('approvals').then(function (data) {
       U.clear(host);
+      var list = data.pending || [], decided = data.decided || [];
       RB.app.updateBadge(list.length);
-      if (!list.length) { host.appendChild(U.el('p.muted', null, [t('approvals.empty')])); return; }
-      host.appendChild(U.el('div.cards', null, list.map(card)));
+      if (!list.length) host.appendChild(U.el('p.muted', null, [t('approvals.empty')]));
+      else host.appendChild(U.el('div.cards', null, list.map(card)));
+      // 최근 결정 기록: 일정이 지나기 전까지만 서버가 돌려준다
+      if (decided.length) {
+        host.appendChild(U.el('h3.section-title', null, [t('approvals.history')]));
+        host.appendChild(U.el('p.muted.small', null, [t('approvals.history.hint')]));
+        host.appendChild(U.el('div.cards', null, decided.map(decidedCard)));
+      }
     }).catch(function (err) { U.clear(host); host.appendChild(U.el('p.error', null, [err.message || t('error.network')])); });
   }
 
@@ -56,6 +64,27 @@ RB.approvals = (function () {
         ' · ', q.requestId
       ]),
       U.el('div.actions', null, [rejectBtn, approveBtn])
+    ]);
+  }
+
+  /** 결정 기록 카드(읽기 전용): 결과 배지, 누가 언제, 반려 사유 */
+  function decidedCard(entry) {
+    var q = entry.request, r = entry.resource;
+    var lang = RB.i18n.get();
+    var ok = q.status === 'APPROVED';
+    return U.el('div.card.card-decided', null, [
+      U.el('div.card-head', null, [
+        U.el('span', null, [U.el('b', null, [r.name]), ' · ', U.el('span.badge.badge-type', null, [t('approvals.type.' + q.type)])]),
+        U.el('span.badge.' + (ok ? 'badge-ok' : 'badge-rejected'), null, [t('approvals.status.' + q.status)])
+      ]),
+      U.el('div.card-title', null, [q.title]),
+      U.el('div.muted', null, [T.fmtRange(new Date(q.start), new Date(q.end), lang)]),
+      U.el('div.kv', null, [t('approvals.requester') + ': ', q.requesterName || q.requesterEmail, ' (', q.requesterEmail, ')']),
+      q.decisionNote && !ok ? U.el('div.kv', null, [t('approvals.decisionNote') + ': ', q.decisionNote]) : null,
+      U.el('div.muted.small', null, [
+        t('approvals.decidedBy', { who: q.approver === 'system' || !q.approver ? t('approvals.system') : q.approver, when: q.decidedAt ? T.fmtDateTime(new Date(q.decidedAt), lang) : '' }),
+        ' · ', q.requestId
+      ])
     ]);
   }
 

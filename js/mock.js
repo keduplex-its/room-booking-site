@@ -311,16 +311,17 @@ RB.mock = (function () {
     },
 
     approvals: function () {
-      var list = requests.filter(function (q) {
-        return (q.status === 'PENDING' || q.status === 'ESCALATED') && isApprover(res(q.calendarId));
-      }).map(function (q) { return { request: serialize(q), resource: res(q.calendarId) }; });
-      return delay(list);
+      var mine = requests.filter(function (q) { return isApprover(res(q.calendarId)); });
+      var wrap = function (q) { return { request: serialize(q), resource: res(q.calendarId) }; };
+      var pending = mine.filter(function (q) { return q.status === 'PENDING' || q.status === 'ESCALATED'; }).map(wrap);
+      var decided = mine.filter(function (q) { return ['APPROVED', 'REJECTED', 'EXPIRED'].indexOf(q.status) !== -1 && q.end > new Date(); }).map(wrap);
+      return delay({ pending: pending, decided: decided });
     },
 
     approve: function (p) {
       var q = requests.filter(function (x) { return x.requestId === p.requestId; })[0];
       if (!q) return fail('NOT_FOUND', '');
-      q.status = 'APPROVED';
+      q.status = 'APPROVED'; q.approver = me.email; q.decidedAt = new Date().toISOString();
       if (q.type === 'BOOK') {
         events.forEach(function (e) { if (e.eventId === q.eventId) e.status = 'CONFIRMED'; });
       } else {
@@ -387,7 +388,7 @@ RB.mock = (function () {
     reject: function (p) {
       var q = requests.filter(function (x) { return x.requestId === p.requestId; })[0];
       if (!q) return fail('NOT_FOUND', '');
-      q.status = 'REJECTED'; q.decisionNote = p.note;
+      q.status = 'REJECTED'; q.approver = me.email; q.decidedAt = new Date().toISOString(); q.decisionNote = p.note || ''; q.decisionNote = p.note;
       if (q.type === 'BOOK') {
         var i = -1; events.forEach(function (e, k) { if (e.eventId === q.eventId) i = k; });
         if (i !== -1) events.splice(i, 1);
