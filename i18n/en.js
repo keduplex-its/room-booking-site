@@ -118,6 +118,7 @@ RB.I18N.en = {
   'approvals.yield.yes': 'yielded',
   'approvals.yield.no': 'declined',
   'approvals.yield.none': 'no answer yet',
+  'approvals.waitingHolder': 'Waiting for the current holder to answer (asked {when}). You can still decide now if it is urgent.',
   'approvals.escalated': 'Escalated',
   'approvals.expires': 'Deadline',
   'reject.note': 'Rejection note',

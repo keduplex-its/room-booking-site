@@ -40,6 +40,7 @@ RB.approvals = (function () {
       U.el('div.muted', null, [T.fmtRange(new Date(q.start), new Date(q.end), lang), q.headcount ? ' · ' + q.headcount + ' people' : '']),
       U.el('div.kv', null, [t('approvals.requester') + ': ', q.requesterName || q.requesterEmail, ' (', q.requesterEmail, ')']),
       q.reason ? U.el('div.kv', null, [t('approvals.reason') + ': ', q.reason]) : null,
+      q.holderAskedAt && !q.approversNotifiedAt ? U.el('p.note', null, [t('approvals.waitingHolder', { when: T.fmtDateTime(new Date(q.holderAskedAt), lang) })]) : null,
       q.note ? U.el('div.kv.muted', null, [q.note]) : null,
       q.conflicts && q.conflicts.length ? U.el('div.kv', null, [
         U.el('b', null, [t('approvals.bumps') + ': ']),
