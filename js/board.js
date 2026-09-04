@@ -40,7 +40,7 @@ RB.board = (function () {
 
   /** 표시 범위(분) */
   function range() {
-    var hm = (cfg().displayHours || '07:00-21:00').split('-');
+    var hm = (cfg().displayHours || '06:00-22:00').split('-');
     return { from: T.parseHM(hm[0]), to: T.parseHM(hm[1]) };
   }
   function slotMin() { return cfg().slotMinutes || 30; }

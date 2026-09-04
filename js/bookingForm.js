@@ -106,7 +106,7 @@ RB.bookingForm = (function () {
 
   /** 표시 범위를 슬롯으로 나눈 시각 옵션 [{value:분, label:'07:00'}] (endInclusive 면 마지막 경계 포함) */
   function timeOptions(endInclusive) {
-    var hm = (cfg().displayHours || '07:00-21:00').split('-');
+    var hm = (cfg().displayHours || '06:00-22:00').split('-');
     var from = T.parseHM(hm[0]), to = T.parseHM(hm[1]), step = cfg().slotMinutes || 30;
     var list = [];
     for (var m = from; endInclusive ? m <= to : m < to; m += step) list.push({ value: m, label: T.fmtHM(m) });
