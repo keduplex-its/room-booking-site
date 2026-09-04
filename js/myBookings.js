@@ -1,18 +1,20 @@
 /**
  * [myBookings.js] — 내 예약 목록과 취소.
  *
- * 무엇을 한다: 앞으로의 내 예약(확정·대기)과 내 선점 요청을 시간순으로 보여주고 취소한다.
+ * 무엇을 한다: 앞으로의 내 예약(확정·대기)과 내 선점 요청을 시간순으로 보여주고 취소·수정(D-25)한다.
  * 의존:        time.js, i18n.js, ui.js, api.js
  * 호출됨:      app.js
  * 주의:        지난 예약은 보여주지 않는다(백엔드가 거른다).
- * 정책 근거:   D-13 ③
+ * 정책 근거:   D-13 ③, D-25(수정)
  */
 window.RB = window.RB || {};
 
 RB.myBookings = (function () {
   var U = RB.ui, T = RB.time, t = function (k, v) { return RB.i18n.t(k, v); };
+  var currentHost = null;   // 편집 저장 뒤 목록을 다시 그릴 때 쓴다
 
   function render(host) {
+    currentHost = host;
     U.clear(host);
     host.appendChild(U.loadingBlock());
     RB.api.call('myBookings').then(function (data) {
@@ -39,6 +41,13 @@ RB.myBookings = (function () {
       U.el('div.muted', null, [T.fmtRange(start, end, lang), x.requestId ? ' · ' + x.requestId : '']),
       U.el('div.actions', null, [
         isDraft ? U.el('button.btn.btn-warn.btn-sm', { type: 'button', onclick: function () { RB.bookingForm.openComplete(x.requestId); } }, [t('mine.addReason')]) : null,
+        // 사이트 예약(단일 회차·확정)만 편집 가능(D-25). 저장되면 목록을 다시 받는다.
+        !isRequest && x.editable ? U.el('button.btn.btn-sm', { type: 'button', onclick: function () {
+          RB.bookingForm.open({
+            calendarId: x.calendarId, date: T.dateKey(start), startMin: T.minutesOfDay(start), endMin: T.minutesOfDay(end),
+            edit: { eventId: x.eventId, title: x.title, guests: x.guests || [], grade: x.grade, onDone: function () { if (currentHost) render(currentHost); } }
+          });
+        } }, [t('btn.edit')]) : null,
         U.el('button.btn.btn-danger.btn-sm', { type: 'button', onclick: function () {
           U.confirm(t('confirm.cancel')).then(function (yes) {
             if (!yes) return;

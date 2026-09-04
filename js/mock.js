@@ -268,9 +268,29 @@ RB.mock = (function () {
 
     myBookings: function () {
       var mine = events.filter(function (e) { return e.organizerEmail === me.email && e.end > new Date(); })
-        .sort(function (a, b) { return a.start - b.start; }).map(serialize);
+        .sort(function (a, b) { return a.start - b.start; }).map(serialize)
+        .map(function (e) { e.editable = e.status === 'CONFIRMED'; e.guests = e.guests || []; return e; });
       var reqs = requests.filter(function (q) { return q.requesterEmail === me.email && (q.status === 'DRAFT' || (!q.eventId && (q.status === 'PENDING' || q.status === 'ESCALATED'))); }).map(serialize);
       return delay({ events: mine, requests: reqs });
+    },
+
+    /** 예약 수정 (D-25 mock): 시간 충돌이면 CONFLICT */
+    update: function (p) {
+      var e = events.filter(function (x) { return x.eventId === p.eventId; })[0];
+      if (!e) return fail('NOT_FOUND', 'no such booking');
+      var r = res(e.calendarId);
+      if (e.organizerEmail !== me.email && !isApprover(r)) return fail('FORBIDDEN', 'not yours');
+      var ns = new Date(p.start), ne = new Date(p.end);
+      var changed = [];
+      if (ns.getTime() !== e.start.getTime() || ne.getTime() !== e.end.getTime()) {
+        if (r.mode === 'APPROVAL') return fail('REJECTED', 'This room requires approval, so a time change needs a new request. Cancel and book again.');
+        var c = conflictsFor(r.calendarId, ns, ne).filter(function (x) { return x.eventId !== e.eventId; });
+        if (c.length) return delay({ kind: 'CONFLICT', conflicts: c.map(serialize) });
+        e.start = ns; e.end = ne; changed.push('time');
+      }
+      if (p.title && p.title !== e.title) { e.title = p.title; changed.push('title'); }
+      if ((p.guests || []).join(',') !== (e.guests || []).join(',')) { e.guests = (p.guests || []).slice(); changed.push('attendees'); }
+      return delay({ kind: 'UPDATED', eventId: e.eventId, changed: changed });
     },
 
     cancel: function (p) {

@@ -19,8 +19,8 @@ RB.bookingForm = (function () {
    * Enter·콤마·Tab 으로 타이핑한 이메일을 칩으로 추가한다. 후보에 없는 주소(CGA 등)도 직접 넣을 수 있다.
    * @returns {{node:Element, values:function():string[]}}
    */
-  function guestChips() {
-    var chips = [];            // [{email, name}]
+  function guestChips(initial) {
+    var chips = (initial || []).map(function (e) { return { email: String(e).toLowerCase(), name: '' }; });  // [{email, name}]
     var input = U.el('input', { type: 'text', placeholder: t('form.guests.ph'), autocomplete: 'off' });
     var list = U.el('div.suggest'); list.hidden = true;
     var box = U.el('div.chips', { onclick: function (e) { if (e.target === box) input.focus(); } }, [input, list]);
@@ -84,7 +84,12 @@ RB.bookingForm = (function () {
     input.addEventListener('blur', function () { setTimeout(function () { if (input.value.trim() && EMAIL_RE.test(input.value.trim())) add(input.value); hide(); }, 150); });
     function highlight() { list.querySelectorAll('.suggest-item').forEach(function (n, i) { n.classList.toggle('active', i === active); }); }
 
-    return { node: box, values: function () { return chips.map(function (c) { return c.email; }); } };
+    if (chips.length) render();
+    // values(): Enter 를 안 누르고 바로 제출해도 입력창에 남은 주소를 잃지 않도록 먼저 칩으로 옮긴다
+    return { node: box, values: function () {
+      if (input.value.trim()) add(input.value);
+      return chips.map(function (c) { return c.email; });
+    } };
   }
 
   function cfg() { return RB.app.state.config; }
@@ -124,9 +129,15 @@ RB.bookingForm = (function () {
    * 폼 열기.
    * @param {{calendarId?:string, date?:string, startMin?:number, endMin?:number}} preset
    */
+  /**
+   * 예약 폼. preset.edit 가 있으면 편집 모드(D-25): 방 고정, 제목·참석자·시간만 고치고 `update` 를 부른다.
+   * @param {Object} preset {calendarId?, date?, startMin?, endMin?, edit?:{eventId, title, guests:[email], onDone:function}}
+   */
   function open(preset) {
     preset = preset || {};
+    var edit = preset.edit || null;
     var list = resources();
+    if (edit) list = list.filter(function (r) { return r.calendarId === preset.calendarId; });
     if (!list.length) return;
     var maxDate = T.addDays(T.today(), cfg().maxAdvanceDays || 180);
     var initial = {
@@ -156,10 +167,11 @@ RB.bookingForm = (function () {
       var s = Number(startSel.value); if (Number(endSel.value) <= s) endSel.value = String(Math.min(s + 60, timeOptions(true).slice(-1)[0].value));
     });
     var endSel = select('end', timeOptions(true).slice(1), initial.endMin);
-    var titleIn = U.el('input.input', { type: 'text', name: 'title', required: true, maxLength: 80, placeholder: t('form.summary.ph') });
+    if (edit) resSel.disabled = true;
+    var titleIn = U.el('input.input', { type: 'text', name: 'title', required: true, maxLength: 80, placeholder: t('form.summary.ph'), value: edit ? edit.title || '' : '' });
     var gradeSel = select('grade', cfg().grades.map(function (g) { return { value: g.code, label: g.label || t('grade.' + g.code) }; }), cfg().grades[cfg().grades.length - 1].code);
     var headIn = U.el('input.input', { type: 'number', name: 'headcount', min: 1, max: 999, placeholder: '' });
-    var guests = guestChips();
+    var guests = guestChips(edit ? edit.guests : null);
     var noteIn = U.el('textarea.input', { name: 'note', rows: 2, placeholder: t('form.note.ph') });
     var recSel = select('recFreq', [
       { value: 'none', label: t('rec.none') }, { value: 'weekly', label: t('rec.weekly') },
@@ -179,7 +191,7 @@ RB.bookingForm = (function () {
     updateModeNote();
 
     var errBox = U.el('p.error'); errBox.hidden = true;
-    var submitBtn = U.el('button.btn.btn-primary', { type: 'submit' }, [t('btn.submit')]);
+    var submitBtn = U.el('button.btn.btn-primary', { type: 'submit' }, [t(edit ? 'btn.save' : 'btn.submit')]);
 
     var form = U.el('form.form', {
       onsubmit: function (e) {
@@ -189,6 +201,13 @@ RB.bookingForm = (function () {
         if (problem) { errBox.textContent = problem; errBox.hidden = false; return; }
         errBox.hidden = true; var done = U.busy(submitBtn);
         RB.people.remember(params.guests);
+        if (edit) {
+          RB.api.call('update', { eventId: edit.eventId, title: params.title, start: params.start, end: params.end, guests: params.guests })
+            .then(function (result) { handleUpdate(result, params, edit, errBox); })
+            .catch(function (err) { errBox.textContent = t('result.error', { message: err.message || err.code }); errBox.hidden = false; })
+            .then(done);
+          return;
+        }
         RB.api.call('book', params).then(function (result) { handleResult(result, params); })
           .catch(function (err) { U.toast(t('result.error', { message: err.message || err.code }), 'error'); })
           .then(done);
@@ -198,7 +217,7 @@ RB.bookingForm = (function () {
       U.el('div.grid-3', null, [field('form.date', dateIn), field('form.start', startSel), field('form.end', endSel)]),
       field('form.summary', titleIn),
       field('form.guests', guests.node, t('form.guests.hint')),
-      U.el('details.optional', null, [
+      edit ? U.el('p.note', null, [t('form.editNote')]) : U.el('details.optional', null, [
         U.el('summary', null, [t('form.optional')]),
         U.el('div.grid-2', null, [field('form.grade', gradeSel), field('form.headcount', headIn)]),
         field('form.note', noteIn),
@@ -224,14 +243,35 @@ RB.bookingForm = (function () {
     function validate(p) {
       if (!p.calendarId || !dateIn.value || !p.title) return t('form.err.required');
       if (Number(endSel.value) <= Number(startSel.value)) return t('form.err.order');
-      if (new Date(p.start) < new Date()) return t('form.err.past');
+      // 편집 중 시작 시각을 그대로 두면(이미 진행 중인 예약의 제목·참석자만 고칠 때) 과거 검사를 건너뛴다
+      var startUnchanged = edit && T.dateKey(new Date(p.start)) === initial.date && Number(startSel.value) === initial.startMin;
+      if (!startUnchanged && new Date(p.start) < new Date()) return t('form.err.past');
       var bad = (p.guests || []).filter(function (g) { return !EMAIL_RE.test(g); });
       if (bad.length) return t('form.err.guests', { list: bad.join(', ') });
       return null;
     }
 
-    U.modal(form, { title: t('form.title') });
+    U.modal(form, { title: t(edit ? 'form.editTitle' : 'form.title') });
     setTimeout(function () { titleIn.focus(); }, 50);
+  }
+
+  /** 편집 결과 분기(D-25): 저장되면 현황판 캐시를 갱신하고 목록을 다시 그린다. 시간 충돌은 폼 안에 보여준다. */
+  function handleUpdate(result, params, edit, errBox) {
+    var lang = RB.i18n.get();
+    if (result.kind === 'UPDATED') {
+      U.closeModal();
+      U.toast(result.changed && result.changed.length ? t('result.updated') : t('result.noChange'), 'ok');
+      RB.board.removeLocal(edit.eventId);
+      RB.board.addLocal({ calendarId: params.calendarId, eventId: edit.eventId, title: params.title, start: params.start, end: params.end, status: 'CONFIRMED', grade: edit.grade || null });
+      if (edit.onDone) edit.onDone();
+    } else if (result.kind === 'CONFLICT') {
+      var c = (result.conflicts || [])[0] || {};
+      errBox.textContent = t('result.conflict') + (c.title ? ' ' + c.title + ' (' + T.fmtRange(new Date(c.start), new Date(c.end), lang) + ')' : '');
+      errBox.hidden = false;
+    } else {
+      errBox.textContent = t('result.error', { message: result.message || '' });
+      errBox.hidden = false;
+    }
   }
 
   /** 제출 결과 분기 */
